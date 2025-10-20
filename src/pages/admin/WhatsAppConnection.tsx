@@ -1,204 +1,214 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { db, WhatsAppInstance } from '../../lib/database';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import io from 'socket.io-client';
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { QrCode, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { whatsappWJSClient } from "@/lib/whatsapp-wjs-client";
 
-const WhatsAppConnection: React.FC = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [connections, setConnections] = useState<WhatsAppInstance[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [showQrCode, setShowQrCode] = useState(false);
+export default function WhatsAppConnection() {
   const [isConnected, setIsConnected] = useState(false);
-  const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [qrCode, setQrCode] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const newSocket = io('https://isa.inovapro.cloud', { path: '/socket.io' });
-    setSocket(newSocket);
+    // Verificar status inicial
+    checkStatus();
 
-    newSocket.on('qr', (qr) => {
-      setQrCode(qr);
-      setShowQrCode(true);
-      setLoading(false);
-    });
-
-    newSocket.on('ready', () => {
-      setIsConnected(true);
-      setShowQrCode(false);
-      setQrCode(null);
-      toast({
-        title: 'Sucesso',
-        description: 'WhatsApp conectado com sucesso!',
-      });
-    });
-
-    newSocket.on('disconnected', () => {
-      setIsConnected(false);
-      toast({
-        title: 'Aviso',
-        description: 'WhatsApp desconectado.',
-        variant: 'destructive',
-      });
+    // Conectar ao WebSocket
+    whatsappWJSClient.connectSocket({
+      onQR: (qr) => {
+        console.log('QR Code recebido');
+        setQrCode(qr);
+        setShowQrCode(true);
+        setIsConnected(false);
+      },
+      onReady: () => {
+        console.log('WhatsApp pronto');
+        setIsConnected(true);
+        setShowQrCode(false);
+        setQrCode("");
+        toast.success("WhatsApp conectado com sucesso!");
+      },
+      onAuthenticated: () => {
+        console.log('WhatsApp autenticado');
+        toast.success("WhatsApp autenticado!");
+      },
+      onMessage: (message) => {
+        console.log('Nova mensagem:', message);
+        // Aqui você pode processar a mensagem recebida
+      },
+      onDisconnected: (reason) => {
+        console.log('WhatsApp desconectado:', reason);
+        setIsConnected(false);
+        setShowQrCode(false);
+        toast.error("WhatsApp desconectado: " + reason);
+      }
     });
 
     return () => {
-      newSocket.disconnect();
+      whatsappWJSClient.disconnectSocket();
     };
-  }, [toast]);
+  }, []);
 
-  const handleConnect = () => {
-    setLoading(true);
-    setError(null);
-    if (socket) {
-      socket.emit('connect-whatsapp');
+  const checkStatus = async () => {
+    try {
+      const response = await whatsappWJSClient.getStatus();
+      if (response.success) {
+        setIsConnected(response.status.isReady);
+        if (response.status.hasQRCode && !response.status.isReady) {
+          const qrResponse = await whatsappWJSClient.getQRCode();
+          if (qrResponse.success && qrResponse.qrCode) {
+            setQrCode(qrResponse.qrCode);
+            setShowQrCode(true);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao verificar status:', error);
     }
   };
 
-  const handleDisconnect = () => {
-    if (socket) {
-      socket.emit('disconnect-whatsapp');
+  const handleRefreshQR = async () => {
+    setIsLoading(true);
+    try {
+      await checkStatus();
+    } catch (error) {
+      toast.error("Erro ao atualizar QR Code");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setIsLoading(true);
+    try {
+      const response = await whatsappWJSClient.disconnect();
+      if (response.success) {
+        setIsConnected(false);
+        setShowQrCode(false);
+        setQrCode("");
+        toast.success("WhatsApp desconectado com sucesso");
+      }
+    } catch (error) {
+      toast.error("Erro ao desconectar WhatsApp");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-background via-background to-accent/5">
-      <div className="w-full max-w-2xl">
-        {/* Card Principal */}
-        <div className="bg-card/50 backdrop-blur-xl rounded-3xl shadow-2xl border border-border/50 overflow-hidden">
-          {/* Header */}
-          <div className="px-8 py-6 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b border-border/50">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent mb-2">
-              Conexão WhatsApp
-            </h1>
-            <p className="text-muted-foreground">
-              Conecte seu WhatsApp escaneando o QR Code
-            </p>
-          </div>
+      <Card className="w-full max-w-2xl">
+        <CardHeader className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+          <CardTitle className="text-3xl">Conexão WhatsApp</CardTitle>
+          <CardDescription>
+            Conecte seu WhatsApp escaneando o QR Code via WhatsApp Web JS
+          </CardDescription>
+        </CardHeader>
 
-          {/* Content */}
-          <div className="p-8 space-y-6">
-            {error && (
-              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-xl backdrop-blur-sm animate-in fade-in slide-in-from-top-2">
-                <p className="text-sm font-medium">{error}</p>
+        <CardContent className="space-y-6 pt-6">
+          {error && (
+            <div className="p-4 bg-destructive/10 border border-destructive rounded-lg flex items-start gap-3">
+              <XCircle className="h-5 w-5 text-destructive mt-0.5" />
+              <div>
+                <p className="font-medium text-destructive">Erro na conexão</p>
+                <p className="text-sm text-muted-foreground mt-1">{error}</p>
               </div>
-            )}
+            </div>
+          )}
 
-            {isConnected ? (
-              <div className="text-center space-y-6 py-12 animate-in fade-in slide-in-from-bottom-4">
-                <div className="w-24 h-24 mx-auto bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-full flex items-center justify-center border-2 border-green-500/40">
-                  <svg className="w-12 h-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                
-                <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">
-                    ✅ WhatsApp Conectado
-                  </h2>
-                  <p className="text-muted-foreground text-sm mb-1">
-                    Sua conexão está ativa e funcionando
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
-                  <button
-                    onClick={handleDisconnect}
-                    disabled={loading}
-                    className="px-6 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-xl font-semibold transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50"
-                  >
-                    Desconectar
-                  </button>
-                </div>
+          {isConnected && (
+            <div className="p-4 bg-primary/10 border border-primary rounded-lg flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-primary mt-0.5" />
+              <div>
+                <p className="font-medium text-primary">WhatsApp Conectado</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Seu WhatsApp está conectado e funcionando normalmente via WhatsApp Web JS.
+                </p>
               </div>
-            ) : !showQrCode ? (
-              <div className="text-center space-y-6 py-12">
-                <div className="w-24 h-24 mx-auto bg-gradient-to-br from-primary/20 to-accent/20 rounded-full flex items-center justify-center">
-                  <svg className="w-12 h-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground mb-2">
-                    Pronto para conectar?
-                  </h2>
-                  <p className="text-muted-foreground text-sm">
-                    Clique no botão abaixo para gerar seu QR Code
-                  </p>
-                </div>
+            </div>
+          )}
 
-                <button
-                  onClick={handleConnect}
-                  disabled={loading}
-                  className="group relative px-8 py-4 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 disabled:from-muted disabled:to-muted text-primary-foreground rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.02] disabled:scale-100 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Gerando QR Code...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                      </svg>
-                      Gerar QR Code
-                    </span>
-                  )}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                {qrCode ? (
+          {!isConnected && !showQrCode && (
+            <div className="text-center space-y-4">
+              <Loader2 className="h-16 w-16 mx-auto text-muted-foreground animate-spin" />
+              <p className="text-muted-foreground">
+                Aguardando inicialização do WhatsApp Web JS...
+              </p>
+              <Button onClick={handleRefreshQR} variant="outline" disabled={isLoading}>
+                {isLoading ? (
                   <>
-                    <div className="flex justify-center py-8">
-                      <div className="bg-background p-6 rounded-2xl shadow-xl border-2 border-primary/20">
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}`}
-                          alt="QR Code WhatsApp"
-                          className="w-80 h-80 block"
-                          onError={(e) => {
-                            console.error('Erro ao carregar imagem QR Code');
-                            setError('Erro ao exibir QR Code. A imagem pode estar corrompida.');
-                          }}
-                          onLoad={() => console.log('QR Code carregado com sucesso')}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="text-center space-y-4">
-                      <h3 className="text-xl font-bold text-foreground">
-                        Escaneie com seu WhatsApp
-                      </h3>
-                    </div>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Atualizando...
                   </>
                 ) : (
-                  <div className="text-center py-12">
-                    <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Carregando QR Code...</p>
-                  </div>
+                  <>
+                    <QrCode className="mr-2 h-4 w-4" />
+                    Atualizar Status
+                  </>
                 )}
-              </div>
-            )}
-          </div>
-        </div>
+              </Button>
+            </div>
+          )}
 
-        {/* Info Footer */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            Sua conexão é segura e criptografada
-          </p>
-        </div>
-      </div>
+          {showQrCode && qrCode && (
+            <div className="space-y-4">
+              <div className="bg-white p-6 rounded-lg border-2 border-primary/20">
+                <img 
+                  src={qrCode} 
+                  alt="QR Code WhatsApp" 
+                  className="w-full max-w-[300px] mx-auto"
+                />
+              </div>
+              <div className="text-center space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Abra o WhatsApp no seu celular e escaneie este QR Code
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  WhatsApp {'>'} Mais opções {'>'} Dispositivos conectados {'>'} Conectar dispositivo
+                </p>
+              </div>
+              <Button onClick={handleRefreshQR} variant="outline" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Atualizando...
+                  </>
+                ) : (
+                  <>
+                    <QrCode className="mr-2 h-4 w-4" />
+                    Atualizar QR Code
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {isConnected && (
+            <Button 
+              onClick={handleDisconnect} 
+              variant="destructive" 
+              size="lg" 
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Desconectando...
+                </>
+              ) : (
+                <>
+                  <XCircle className="mr-2 h-5 w-5" />
+                  Desconectar WhatsApp
+                </>
+              )}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default WhatsAppConnection;
+}
