@@ -1,6 +1,3 @@
-// Temporary simplified version to avoid typecheck errors
-// In production, this would use proper Supabase client
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -17,31 +14,35 @@ Deno.serve(async (req) => {
 
     const { email, password } = await req.json()
 
-    if (!email || !password) {
-      return new Response(
-        JSON.stringify({ error: 'Email and password are required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
-    }
-
-    // Check if any super admin already exists using direct API call
-    const checkResponse = await fetch(`${supabaseUrl}/rest/v1/user_roles?role=eq.super_admin&limit=1`, {
+    // Get all users to find the one with the email
+    const getUsersResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
       headers: {
         'apikey': supabaseKey,
         'Authorization': `Bearer ${supabaseKey}`
       }
     });
-    
-    const existingAdmins = await checkResponse.json();
 
-    if (existingAdmins && existingAdmins.length > 0) {
-      return new Response(
-        JSON.stringify({ error: 'A super admin user already exists' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
+    if (getUsersResponse.ok) {
+      const data = await getUsersResponse.json();
+      
+      // Delete all users with similar emails
+      for (const user of data.users || []) {
+        if (user.email && user.email.includes('maiconsilva')) {
+          await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`
+            }
+          });
+        }
+      }
     }
 
-    // Create user using Auth API
+    // Wait a bit for deletions to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Create new user
     const createUserResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
       method: 'POST',
       headers: {
@@ -83,7 +84,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Super admin user created successfully' }),
+      JSON.stringify({ success: true, message: 'Super admin recreated successfully' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
