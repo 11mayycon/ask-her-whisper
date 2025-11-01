@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-    // Check if any admin already exists using direct API call
-    const checkResponse = await fetch(`${supabaseUrl}/rest/v1/user_roles?role=eq.admin&limit=1`, {
+    // Check if any super admin already exists using direct API call
+    const checkResponse = await fetch(`${supabaseUrl}/rest/v1/user_roles?role=eq.super_admin&limit=1`, {
       headers: {
         'apikey': supabaseKey,
         'Authorization': `Bearer ${supabaseKey}`
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
     if (existingAdmins && existingAdmins.length > 0) {
       return new Response(
-        JSON.stringify({ error: 'An admin user already exists' }),
+        JSON.stringify({ error: 'A super admin user already exists' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     const userData = await createUserResponse.json();
 
-    // Assign admin role
+    // Assign super_admin role
     const roleResponse = await fetch(`${supabaseUrl}/rest/v1/user_roles`, {
       method: 'POST',
       headers: {
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         user_id: userData.id,
-        role: 'admin'
+        role: 'super_admin'
       })
     });
 
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Admin user created successfully' }),
+      JSON.stringify({ success: true, message: 'Super admin user created successfully' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
