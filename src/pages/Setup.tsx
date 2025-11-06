@@ -57,6 +57,33 @@ const Setup = () => {
     }
   };
 
+  const resetSuperAdmin = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-super-admin', {
+        body: {
+          email: "maiconsillva2025@gmail.com",
+          password: "1285041"
+        }
+      });
+
+      if (error || !data.success) {
+        toast.error(data?.error || "Erro ao resetar administrador");
+        return;
+      }
+
+      toast.success("Super Admin resetado com sucesso!");
+      setTimeout(() => {
+        navigate("/admin/login");
+      }, 2000);
+    } catch (error: any) {
+      console.error("Error resetting admin:", error);
+      toast.error("Erro ao resetar administrador. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -79,9 +106,19 @@ const Setup = () => {
               O administrador já foi criado anteriormente
             </p>
           </div>
-          <Button onClick={() => navigate("/admin/login")} className="bg-gradient-primary">
-            IR PARA LOGIN
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button onClick={() => navigate("/admin/login")} className="bg-gradient-primary">
+              IR PARA LOGIN
+            </Button>
+            <Button 
+              onClick={resetSuperAdmin} 
+              disabled={loading}
+              variant="outline"
+              className="border-primary text-primary hover:bg-primary/10"
+            >
+              {loading ? "RESETANDO..." : "RESETAR SUPER ADMIN"}
+            </Button>
+          </div>
         </div>
       </div>
     );
