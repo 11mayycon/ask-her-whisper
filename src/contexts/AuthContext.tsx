@@ -42,12 +42,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.login(email, password);
       
-      setUser(data.user);
+      // Mapear Admin para User (name -> full_name)
+      const mappedUser: User = {
+        id: data.user.id,
+        email: data.user.email,
+        full_name: data.user.name || data.user.email
+      };
+      
+      setUser(mappedUser);
       setRole(data.role);
       setToken(data.token);
       
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('user', JSON.stringify(mappedUser));
       localStorage.setItem('role', data.role);
 
       toast.success('Login realizado com sucesso!');

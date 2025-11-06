@@ -1,71 +1,77 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+import { localDB } from './local-storage-db';
 
 export const api = {
   // Auth
   async login(email: string, password: string) {
-    const res = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    try {
+      const result = await localDB.login(email, password);
+      return result;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Erro ao fazer login');
+    }
   },
 
   async signup(email: string, password: string, full_name: string) {
-    const res = await fetch(`${API_URL}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, full_name }),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    try {
+      const result = await localDB.createAdmin({
+        email,
+        password,
+        name: full_name,
+        role: 'admin'
+      });
+      const token = btoa(`${result.id}:${Date.now()}`);
+      return { user: result, token, role: result.role };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Erro ao criar conta');
+    }
   },
 
   async getMe(token: string) {
-    const res = await fetch(`${API_URL}/auth/me`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    try {
+      const user = await localDB.getMe(token);
+      return user;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Erro ao buscar usuário');
+    }
   },
 
   // Admin
   async getStats(token: string) {
-    const res = await fetch(`${API_URL}/admin/stats`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    try {
+      return await localDB.getStats();
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Erro ao buscar estatísticas');
+    }
   },
 
   async getAdmins(token: string) {
-    const res = await fetch(`${API_URL}/admin/admins`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    try {
+      return await localDB.getAllAdmins();
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Erro ao buscar administradores');
+    }
   },
 
   async createAdmin(token: string, data: any) {
-    const res = await fetch(`${API_URL}/admin/admins`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` 
-      },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    try {
+      return await localDB.createAdmin({
+        email: data.email,
+        password: data.password,
+        name: data.name,
+        role: data.role || 'admin',
+        cpf: data.cpf
+      });
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Erro ao criar administrador');
+    }
   },
 
   async deleteAdmin(token: string, id: string) {
-    const res = await fetch(`${API_URL}/admin/admins/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    try {
+      await localDB.deleteAdmin(id);
+      return { success: true };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Erro ao deletar administrador');
+    }
   },
 };
