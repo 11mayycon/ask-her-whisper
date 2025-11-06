@@ -22,6 +22,7 @@ import Settings from "./pages/admin/Settings";
 import NotFound from "./pages/NotFound";
 import AIChatSupport from "./pages/support/AIChat";
 import SupportChat from "./pages/support/SupportChat";
+import TestSupabase from "./pages/TestSupabase";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/admin/settings" element={<AdminLayout><Settings /></AdminLayout>} />
             <Route path="/support/ai-chat" element={<AIChatSupport />} />
             <Route path="/support/chat" element={<SupportChat />} />
+            <Route path="/test-supabase" element={<TestSupabase />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
