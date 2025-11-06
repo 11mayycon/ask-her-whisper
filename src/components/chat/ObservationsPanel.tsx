@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FileText, Save } from "lucide-react";
-// Removed Supabase import
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from "sonner";
 
 interface ObservationsPanelProps {

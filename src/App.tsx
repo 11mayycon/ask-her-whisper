@@ -2,9 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -26,39 +26,45 @@ import TestSupabase from "./pages/TestSupabase";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="dark">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/painel" element={<DashboardPage />} />
-            <Route path="/support-login" element={<SupportLogin />} />
-            <Route path="/setup" element={<Setup />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin/dashboard" element={<AdminLayout><Dashboard /></AdminLayout>} />
-            <Route path="/admin/accounts" element={<AdminLayout><AccountsManagement /></AdminLayout>} />
-            <Route path="/admin/whatsapp" element={<AdminLayout><WhatsAppConnection /></AdminLayout>} />
-            <Route path="/admin/ai-memory" element={<AdminLayout><AIMemory /></AdminLayout>} />
-            <Route path="/admin/ai-chat" element={<AdminLayout><AIChat /></AdminLayout>} />
-            <Route path="/admin/reports" element={<AdminLayout><Reports /></AdminLayout>} />
-            <Route path="/admin/settings" element={<AdminLayout><Settings /></AdminLayout>} />
-            <Route path="/support/ai-chat" element={<AIChatSupport />} />
-            <Route path="/support/chat" element={<SupportChat />} />
-            <Route path="/test-supabase" element={<TestSupabase />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
+const router = createBrowserRouter(
+  [
+    { path: "/", element: <LandingPage /> },
+    { path: "/login", element: <LoginPage /> },
+    { path: "/painel", element: <DashboardPage /> },
+    { path: "/support-login", element: <SupportLogin /> },
+    { path: "/setup", element: <Setup /> },
+    { path: "/admin/login", element: <AdminLogin /> },
+    { path: "/admin/dashboard", element: <AdminLayout><Dashboard /></AdminLayout> },
+    { path: "/admin/accounts", element: <AdminLayout><AccountsManagement /></AdminLayout> },
+    { path: "/admin/whatsapp", element: <AdminLayout><WhatsAppConnection /></AdminLayout> },
+    { path: "/admin/ai-memory", element: <AdminLayout><AIMemory /></AdminLayout> },
+    { path: "/admin/ai-chat", element: <AdminLayout><AIChat /></AdminLayout> },
+    { path: "/admin/reports", element: <AdminLayout><Reports /></AdminLayout> },
+    { path: "/admin/settings", element: <AdminLayout><Settings /></AdminLayout> },
+    { path: "/support/ai-chat", element: <AIChatSupport /> },
+    { path: "/support/chat", element: <SupportChat /> },
+    { path: "/test-supabase", element: <TestSupabase /> },
+    { path: "*", element: <NotFound /> },
+  ],
+  {
+    future: { v7_startTransition: true, v7_relativeSplatPath: true },
+  }
 );
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="dark">
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;

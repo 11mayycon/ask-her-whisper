@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Bot, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-// Removed Supabase import
+import { supabase } from '@/integrations/supabase/client';
 
 const Setup = () => {
   const navigate = useNavigate();

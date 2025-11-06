@@ -22,7 +22,7 @@ export default function TestSupabase() {
 
     // Test 1: Verificar conexão básica
     try {
-      const { data, error } = await supabase.from("support_rooms").select("*").limit(5) as any;
+      const { data, error } = await supabase.from("support_rooms" as any).select("*").limit(5) as any;
       results.push({
         name: "Conexão com Supabase",
         status: error ? "error" : "success",
@@ -58,7 +58,7 @@ export default function TestSupabase() {
     // Test 3: Verificar acesso a tabelas públicas
     try {
       const { data, error } = await supabase
-        .from("ai_memory")
+        .from("ai_memory" as any)
         .select("id, context, updated_at")
         .limit(1) as any;
       

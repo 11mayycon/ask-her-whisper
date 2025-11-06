@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Bot, IdCard, Shield, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { API_URL } from "@/lib/api-config";
+import { supabase } from '@/integrations/supabase/client';
 
 const SupportLogin = () => {
   const navigate = useNavigate();
@@ -22,29 +22,20 @@ const SupportLogin = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/auth/support/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          matricula: matricula.trim()
-        }),
+      const { data, error } = await supabase.functions.invoke('support-login', {
+        body: { matricula: matricula.trim() },
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      if (error || !data?.support) {
         toast.error(data?.error || "Não foi possível validar sua matrícula");
         return;
       }
 
-      // Salvar token e informações do suporte
-      localStorage.setItem("token", data.token);
+      // Salvar dados básicos no storage
       localStorage.setItem("support_user", JSON.stringify(data.support));
       localStorage.setItem("user_role", "support");
 
-      toast.success(`Bem-vindo(a), ${data.support.nome}!`);
+      toast.success(`Bem-vindo(a), ${data.support.full_name}!`);
       navigate("/support/ai-chat");
     } catch (error) {
       console.error("Erro ao fazer login:", error);

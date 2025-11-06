@@ -56,8 +56,7 @@ export const showBrowserNotification = (title: string, body: string, icon?: stri
       body,
       icon: icon || '/logo.png',
       badge: '/logo.png',
-      tag: 'isa-support',
-      renotify: true
-    });
+      tag: 'isa-support'
+    } as NotificationOptions);
   }
 };

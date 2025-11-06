@@ -43,7 +43,6 @@
     "@tanstack/react-query": "^5.83.0",
     "@types/morgan": "^1.9.10",
     "@types/qrcode": "^1.5.5",
-    "@types/socket.io-client": "^1.4.36",
     "axios": "^1.12.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
