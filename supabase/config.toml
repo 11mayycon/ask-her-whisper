@@ -6,6 +6,9 @@ cors_allowed_origins = ["https://isa.inovapro.cloud", "http://localhost:8082", "
 [functions.create-first-admin]
 verify_jwt = false
 
+[functions.reset-super-admin]
+verify_jwt = false
+
 [functions.evolution]
 verify_jwt = false
 

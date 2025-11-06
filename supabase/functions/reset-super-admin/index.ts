@@ -14,7 +14,16 @@ Deno.serve(async (req) => {
 
     const { email, password } = await req.json()
 
-    // Get all users to find the one with the email
+    // Delete all super_admin roles from user_roles
+    await fetch(`${supabaseUrl}/rest/v1/user_roles?role=eq.super_admin`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`
+      }
+    });
+
+    // Get all users to find and delete any with the email
     const getUsersResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
       headers: {
         'apikey': supabaseKey,
@@ -27,7 +36,7 @@ Deno.serve(async (req) => {
       
       // Delete all users with similar emails
       for (const user of data.users || []) {
-        if (user.email && user.email.includes('maiconsilva')) {
+        if (user.email && user.email.includes('maiconsi')) {
           await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
             method: 'DELETE',
             headers: {
