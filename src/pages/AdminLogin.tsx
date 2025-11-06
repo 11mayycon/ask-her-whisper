@@ -6,37 +6,58 @@ import { Label } from "@/components/ui/label";
 import { Bot, Shield, Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { loginSchema, type LoginFormData } from "@/lib/validations";
 
 const AdminLogin = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<LoginFormData>({
     email: "",
     password: "",
   });
+  const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
 
-    if (!formData.email || !formData.password) {
-      toast.error("Preencha todos os campos");
+    // Validar dados do formulário
+    const validation = loginSchema.safeParse(formData);
+    
+    if (!validation.success) {
+      const fieldErrors: Partial<Record<keyof LoginFormData, string>> = {};
+      validation.error.issues.forEach((issue) => {
+        if (issue.path[0]) {
+          fieldErrors[issue.path[0] as keyof LoginFormData] = issue.message;
+        }
+      });
+      setErrors(fieldErrors);
+      toast.error("Por favor, corrija os erros no formulário");
       return;
     }
 
     setLoading(true);
     try {
-      const { role } = await signIn(formData.email, formData.password);
+      const { role } = await signIn(validation.data.email, validation.data.password);
       
       if (role === 'super_admin' || role === 'admin') {
         navigate('/admin/dashboard');
       } else {
+        toast.error("Acesso negado: você não tem permissão de administrador");
         navigate('/');
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-      toast.error("Email ou senha incorretos");
+      const errorMessage = error?.message || "";
+      
+      if (errorMessage.includes("Invalid login credentials") || errorMessage.includes("Email ou senha")) {
+        toast.error("Email ou senha incorretos");
+      } else if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
+        toast.error("Erro de conexão. Verifique sua internet.");
+      } else {
+        toast.error("Erro ao fazer login. Tente novamente.");
+      }
     } finally {
       setLoading(false);
     }
@@ -139,11 +160,17 @@ const AdminLogin = () => {
                   type="email"
                   placeholder="admin@empresa.com"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="h-12 text-base"
+                  onChange={(e) => {
+                    setFormData({ ...formData, email: e.target.value });
+                    setErrors({ ...errors, email: undefined });
+                  }}
+                  className={`h-12 text-base ${errors.email ? 'border-red-500' : ''}`}
                   disabled={loading}
                   autoFocus
                 />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -154,8 +181,11 @@ const AdminLogin = () => {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="h-12 text-base pr-10"
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value });
+                      setErrors({ ...errors, password: undefined });
+                    }}
+                    className={`h-12 text-base pr-10 ${errors.password ? 'border-red-500' : ''}`}
                     disabled={loading}
                   />
                   <button
@@ -171,6 +201,9 @@ const AdminLogin = () => {
                     )}
                   </button>
                 </div>
+                {errors.password && (
+                  <p className="text-sm text-red-500">{errors.password}</p>
+                )}
               </div>
             </div>
 
