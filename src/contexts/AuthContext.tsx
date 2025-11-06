@@ -47,8 +47,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data: roles } = await supabase
           .from('user_roles' as any)
           .select('role')
-          .eq('user_id', session.user.id);
-        role = (roles?.[0]?.role as any) ?? null;
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        role = (roles as any)?.role ?? null;
       } catch {}
 
       setUser({ id: session.user.id, email: session.user.email || '', full_name: session.user.user_metadata?.full_name || '' });

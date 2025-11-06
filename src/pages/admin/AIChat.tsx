@@ -172,7 +172,6 @@ const AIChat = () => {
                 }`}>
                   {message.sender === 'ai' ? (
                     <ReactMarkdown
-                      className="prose prose-invert prose-sm max-w-none prose-headings:text-purple-300 prose-strong:text-purple-200 prose-p:text-slate-200 prose-li:text-slate-200"
                       components={{
                         p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                         ul: ({ children }) => <ul className="mb-2 last:mb-0 space-y-1">{children}</ul>,

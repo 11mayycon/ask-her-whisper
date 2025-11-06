@@ -96,6 +96,13 @@ const AccountsManagement = () => {
   });
   const [isCreateSupportOpen, setIsCreateSupportOpen] = useState(false);
 
+  // Estados para usuários legados
+  const [legacyUsers, setLegacyUsers] = useState<LegacyUser[]>([]);
+  
+  // Estados para assinaturas
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+
   // Estados gerais
   const [loading, setLoading] = useState(false);
   const [adminLoading, setAdminLoading] = useState(true);
