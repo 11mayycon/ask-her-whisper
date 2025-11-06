@@ -36,16 +36,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      // Buscar roles do usuário (com fallback silencioso)
+      // Buscar roles do usuário priorizando super_admin > admin > support
       let role: AuthContextType["userRole"] = null;
       try {
-        const { data: roles } = await supabase
+        const { data: rolesData } = await supabase
           .from('user_roles' as any)
           .select('role')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        role = (roles as any)?.role ?? null;
+          .eq('user_id', session.user.id);
+        const roles = (rolesData as any[])?.map(r => r.role) ?? [];
+        role = roles.includes('super_admin')
+          ? 'super_admin'
+          : roles.includes('admin')
+          ? 'admin'
+          : roles.includes('support')
+          ? 'support'
+          : null;
       } catch {}
+
 
       setUser({ id: session.user.id, email: session.user.email || '', full_name: session.user.user_metadata?.full_name || '' });
       setUserRole(role);
@@ -63,16 +70,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      // Buscar role do usuário
+      // Buscar role do usuário priorizando super_admin > admin > support
       let role: AuthContextType["userRole"] = null;
       try {
-        const { data: roles } = await supabase
+        const { data: rolesData } = await supabase
           .from('user_roles' as any)
           .select('role')
-          .eq('user_id', data.user?.id)
-          .maybeSingle();
-        role = (roles as any)?.role ?? null;
+          .eq('user_id', data.user?.id);
+        const roles = (rolesData as any[])?.map(r => r.role) ?? [];
+        role = roles.includes('super_admin')
+          ? 'super_admin'
+          : roles.includes('admin')
+          ? 'admin'
+          : roles.includes('support')
+          ? 'support'
+          : null;
       } catch {}
+
 
       setUser({ id: data.user!.id, email: data.user!.email || '', full_name: data.user!.user_metadata?.full_name || '' });
       setUserRole(role);
