@@ -28,14 +28,9 @@ const AdminLogin = () => {
     setLoading(true);
     try {
       await signIn(formData.email, formData.password);
-      toast.success("Login realizado com sucesso!");
     } catch (error: any) {
       console.error("Login error:", error);
-      if (error.message?.includes("Invalid login credentials")) {
-        toast.error("Email ou senha incorretos");
-      } else {
-        toast.error("Erro ao fazer login. Tente novamente.");
-      }
+      toast.error("Email ou senha incorretos");
     } finally {
       setLoading(false);
     }

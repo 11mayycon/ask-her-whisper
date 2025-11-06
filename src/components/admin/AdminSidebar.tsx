@@ -20,11 +20,6 @@ import {
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
-  { icon: Users, label: "Gerenciar Contas", path: "/admin/accounts" },
-  { icon: MessageSquare, label: "Conectar WhatsApp", path: "/admin/whatsapp" },
-  { icon: Brain, label: "Memória da IA", path: "/admin/ai-memory" },
-  { icon: Brain, label: "Chat com IA", path: "/admin/ai-chat" },
-  { icon: BarChart3, label: "Relatórios", path: "/admin/reports" },
   { icon: Settings, label: "Configurações", path: "/admin/settings" },
 ];
 
