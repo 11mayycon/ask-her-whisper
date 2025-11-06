@@ -26,41 +26,18 @@ export const TransferDialog = ({ attendanceId, clientName, onTransferComplete }:
 
     setIsTransferring(true);
     try {
-      // Find support user by matricula
-      const { data: supportUser, error: userError } = await supabase
-        .from('support_users')
-        .select('id, full_name')
-        .eq('matricula', matricula)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (userError) throw userError;
-
-      if (!supportUser) {
-        toast.error('Matrícula não encontrada ou inativa');
-        return;
-      }
-
-      // Update attendance with new agent
+      // Update attendance status
       const { error: updateError } = await supabase
         .from('attendances')
         .update({
-          agent_id: supportUser.id,
           assigned_to: 'agent',
-          updated_at: new Date().toISOString()
+          notes: `Transferido para matrícula: ${matricula}`
         })
         .eq('id', attendanceId);
 
       if (updateError) throw updateError;
 
-      // Add system message
-      await supabase.from('messages').insert({
-        attendance_id: attendanceId,
-        sender_type: 'system',
-        content: `Atendimento transferido para ${supportUser.full_name}`
-      });
-
-      toast.success(`Cliente transferido para ${supportUser.full_name}`);
+      toast.success(`Atendimento transferido`);
       setIsOpen(false);
       setMatricula("");
       onTransferComplete();

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ConnectionStatusProps {
@@ -11,13 +10,11 @@ interface ConnectionStatusProps {
 
 export const ConnectionStatus = ({ onReconnect }: ConnectionStatusProps) => {
   const navigate = useNavigate();
-  const [connectionInfo, setConnectionInfo] = useState<any>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     checkConnection();
-    // Verificar conexão a cada 30 segundos
     const interval = setInterval(checkConnection, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -25,39 +22,7 @@ export const ConnectionStatus = ({ onReconnect }: ConnectionStatusProps) => {
   const checkConnection = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setIsChecking(false);
-        return;
-      }
-
-      // Buscar instância conectada do usuário
-      const { data: connections, error } = await supabase
-        .from('whatsapp_connections')
-        .select('*')
-        .eq('admin_user_id', user.id)
-        .eq('status', 'connected')
-        .single();
-
-      if (error || !connections) {
-        setIsConnected(false);
-        setConnectionInfo(null);
-      } else {
-        // Verificar status via Evolution API
-        const { data: statusData } = await supabase.functions.invoke('check-whatsapp-status', {
-          body: { instanceName: connections.instance_name }
-        });
-
-        const state = statusData?.data?.instance?.state || 'disconnected';
-        const isActive = state === 'open' || statusData?.data?.status === 'connected';
-
-        setIsConnected(isActive);
-        setConnectionInfo({
-          instanceName: connections.instance_name,
-          phoneNumber: connections.phone_number,
-          state: state,
-        });
-      }
+      setIsConnected(!!user);
     } catch (error) {
       console.error('Erro ao verificar conexão:', error);
       setIsConnected(false);
@@ -120,14 +85,8 @@ export const ConnectionStatus = ({ onReconnect }: ConnectionStatusProps) => {
         </div>
         <div className="flex-1">
           <p className="text-sm font-medium text-green-600 dark:text-green-400">
-            WhatsApp Conectado
+            Sistema Conectado
           </p>
-          {connectionInfo && (
-            <p className="text-xs text-green-600/80 dark:text-green-400/80">
-              {connectionInfo.instanceName}
-              {connectionInfo.phoneNumber && ` • ${connectionInfo.phoneNumber}`}
-            </p>
-          )}
         </div>
       </div>
     </div>

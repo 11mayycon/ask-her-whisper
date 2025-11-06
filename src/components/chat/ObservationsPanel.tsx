@@ -25,7 +25,7 @@ export const ObservationsPanel = ({ attendanceId, currentObservations }: Observa
     try {
       const { error } = await supabase
         .from('attendances')
-        .update({ observations })
+        .update({ notes: observations })
         .eq('id', attendanceId);
 
       if (error) throw error;
