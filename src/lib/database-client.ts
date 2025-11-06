@@ -1,59 +1,16 @@
-import { supabase } from '../integrations/supabase/client';
+import { API_URL, fetchWithAuth } from './api-config';
 
-// Cliente para comunicação com o Supabase
+// Cliente para comunicação com o backend
 class DatabaseClient {
-  // Métodos para WhatsApp (a serem refatorados ou removidos)
-  /*
-  async getWhatsAppContacts() {
-    return this.request('GET', '/whatsapp/contacts');
-  }
-
-  async getWhatsAppMessages(contactId: string) {
-    return this.request('GET', `/whatsapp/messages/${contactId}`);
-  }
-
-  async sendWhatsAppMessage(contactId: string, message: string) {
-    return this.request('POST', '/whatsapp/send', { contactId, message });
-  }
-
-  // Métodos para instâncias WhatsApp (a serem refatorados ou removidos)
-  async createWhatsAppInstance(instanceName: string) {
-    return this.request('POST', '/whatsapp/create-instance', { instanceName });
-  }
-
-  async getInstanceStatus(instanceName: string) {
-    return this.request('GET', `/whatsapp/instance-status/${instanceName}`);
-  }
-
-  async getQRCode(instanceName: string) {
-    return this.request('GET', `/whatsapp/qrcode/${instanceName}`);
-  }
-
-  async deleteInstance(instanceName: string) {
-    return this.request('DELETE', `/whatsapp/instance/${instanceName}`);
-  }
-
-  async listInstances() {
-    return this.request('GET', '/whatsapp/instances');
-  }
-
-  async restartInstance(instanceName: string) {
-    return this.request('POST', `/whatsapp/restart-instance/${instanceName}`);
-  }
-
-  async logoutInstance(instanceName: string) {
-    return this.request('POST', `/whatsapp/logout-instance/${instanceName}`);
-  }
-  */
-
   // Métodos para atendimentos
   async getAttendances() {
-    const { data, error } = await supabase.from('attendances').select('*');
-    if (error) {
+    const response = await fetchWithAuth(`${API_URL}/attendances`);
+    if (!response.ok) {
+      const error = await response.json();
       console.error('Erro ao buscar atendimentos:', error);
-      throw error;
+      throw new Error(error.message || 'Erro ao buscar atendimentos');
     }
-    return data;
+    return await response.json();
   }
 
   async getAttendanceMessages(attendanceId: string) {
@@ -69,32 +26,27 @@ class DatabaseClient {
     // a ser implementado
   }
 
-  // Métodos para autenticação
+  // Métodos para autenticação (deprecated - use AuthContext)
   async login(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      console.error('Erro no login:', error);
-      throw error;
-    }
-    return data;
+    // Deprecated - usar AuthContext
+    console.warn('DatabaseClient.login is deprecated, use AuthContext instead');
+    return null;
   }
 
   async logout() {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Erro no logout:', error);
-      throw error;
-    }
+    // Deprecated - usar AuthContext
+    console.warn('DatabaseClient.logout is deprecated, use AuthContext instead');
   }
 
   // Métodos para usuários de suporte
   async getSupportUsers() {
-    const { data, error } = await supabase.from('support_users').select('*');
-    if (error) {
+    const response = await fetchWithAuth(`${API_URL}/support/users`);
+    if (!response.ok) {
+      const error = await response.json();
       console.error('Erro ao buscar usuários de suporte:', error);
-      throw error;
+      throw new Error(error.message || 'Erro ao buscar usuários de suporte');
     }
-    return data;
+    return await response.json();
   }
 
   // Método para simular real-time (substitui o Supabase channels)

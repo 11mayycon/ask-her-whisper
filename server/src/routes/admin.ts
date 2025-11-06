@@ -1,115 +1,497 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
-import { query } from '../config/database';
-import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
+import { getDatabase } from '../config/sqlite';
 
 const router = Router();
 
-// Create admin
-router.post('/create', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
+// Dashboard stats
+router.get('/stats', async (req, res) => {
   try {
-    const { email, password, full_name } = req.body;
+    const db = await getDatabase();
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email e senha são obrigatórios' });
-    }
-
-    // Check if user exists
-    const existingUser = await query(
-      'SELECT id FROM profiles WHERE email = $1',
-      [email]
+    // Buscar atendimentos ativos pela IA
+    const iaAtendendo = await db.get(
+      "SELECT COUNT(*) as count FROM attendances WHERE status = 'in_progress' AND assigned_to = 'ai'"
     );
 
-    if (existingUser.rows.length > 0) {
-      return res.status(400).json({ error: 'Email já cadastrado' });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user
-    const userResult = await query(
-      `INSERT INTO profiles (email, full_name, password_hash)
-       VALUES ($1, $2, $3)
-       RETURNING id, email, full_name`,
-      [email, full_name, hashedPassword]
+    // Buscar atendimentos finalizados (total)
+    const finalizados = await db.get(
+      "SELECT COUNT(*) as count FROM attendances WHERE status = 'finished'"
     );
 
-    const newUser = userResult.rows[0];
-
-    // Add admin role
-    await query(
-      'INSERT INTO user_roles (user_id, role) VALUES ($1, $2)',
-      [newUser.id, 'admin']
+    // Buscar atendimentos dos últimos 15 dias
+    const quinzeDiasAtras = new Date();
+    quinzeDiasAtras.setDate(quinzeDiasAtras.getDate() - 15);
+    const ultimos15Dias = await db.get(
+      "SELECT COUNT(*) as count FROM attendances WHERE created_at >= ?",
+      [quinzeDiasAtras.toISOString()]
     );
 
-    res.status(201).json({ 
-      success: true, 
-      user: newUser 
+    // Buscar agentes online (suportes ativos)
+    const agentesOnline = await db.get(
+      "SELECT COUNT(*) as count FROM supports"
+    );
+
+    // Buscar atendimentos aguardando
+    const aguardando = await db.get(
+      "SELECT COUNT(*) as count FROM attendances WHERE status = 'waiting'"
+    );
+
+    // Buscar atendimentos em atendimento
+    const emAtendimento = await db.get(
+      "SELECT COUNT(*) as count FROM attendances WHERE status = 'in_progress'"
+    );
+
+    // Buscar atendimentos finalizados hoje
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const finalizadosHoje = await db.get(
+      "SELECT COUNT(*) as count FROM attendances WHERE status = 'finished' AND finished_at >= ?",
+      [hoje.toISOString()]
+    );
+
+    res.json({
+      iaAtendendo: iaAtendendo?.count || 0,
+      finalizados: finalizados?.count || 0,
+      ultimos15Dias: ultimos15Dias?.count || 0,
+      agentesOnline: agentesOnline?.count || 0,
+      aguardando: aguardando?.count || 0,
+      emAtendimento: emAtendimento?.count || 0,
+      finalizadosHoje: finalizadosHoje?.count || 0,
     });
   } catch (error) {
-    console.error('Create admin error:', error);
-    res.status(500).json({ error: 'Erro ao criar administrador' });
+    console.error('Erro ao buscar stats:', error);
+    res.status(500).json({ error: 'Erro ao buscar estatísticas' });
   }
 });
 
-// Delete admin
-router.delete('/:userId', authenticateToken, requireAdmin, async (req: AuthRequest, res) => {
+// Buscar atividades recentes
+router.get('/activities', async (req, res) => {
   try {
-    const { userId } = req.params;
+    const db = await getDatabase();
+    const activities = await db.all(
+      "SELECT * FROM activities ORDER BY created_at DESC LIMIT 5"
+    );
+    res.json(activities);
+  } catch (error) {
+    console.error('Erro ao buscar atividades:', error);
+    res.status(500).json({ error: 'Erro ao buscar atividades' });
+  }
+});
 
-    // Don't allow deleting self
-    if (userId === req.userId) {
-      return res.status(400).json({ error: 'Você não pode deletar sua própria conta' });
+// Buscar salas de suporte
+router.get('/support-rooms', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const rooms = await db.all(`
+      SELECT
+        sr.*,
+        (SELECT COUNT(*) FROM messages WHERE room_id = sr.id) as message_count,
+        (SELECT COUNT(*) FROM attendances WHERE room_id = sr.id) as attendance_count
+      FROM support_rooms sr
+      ORDER BY sr.created_at DESC
+    `);
+    res.json(rooms);
+  } catch (error) {
+    console.error('Erro ao buscar salas:', error);
+    res.status(500).json({ error: 'Erro ao buscar salas' });
+  }
+});
+
+// Criar sala de suporte
+router.post('/support-rooms', async (req, res) => {
+  try {
+    console.log('📝 Requisição para criar sala:', req.body);
+
+    const db = await getDatabase();
+    const { randomUUID } = await import('crypto');
+    const roomId = randomUUID();
+
+    // Suporta dois formatos:
+    // 1. Criação de sala de atendimento (com customer_phone)
+    // 2. Criação de sala de suporte gerenciada (com name)
+
+    const {
+      // Formato 1: Sala de atendimento
+      customer_name,
+      customer_phone,
+      assigned_to,
+      status,
+      // Formato 2: Sala de suporte
+      name,
+      description,
+      max_members,
+      support_user_id,
+      admin_owner_id
+    } = req.body;
+
+    // Se tem 'name', é uma sala de suporte gerenciada
+    if (name) {
+      console.log('📋 Criando sala de suporte gerenciada');
+
+      if (!name.trim()) {
+        return res.status(400).json({ error: 'Nome da sala é obrigatório' });
+      }
+
+      // Gerar um telefone fictício para a sala (baseado no timestamp)
+      const fakePhone = `SALA_${Date.now()}`;
+
+      await db.run(
+        `INSERT INTO support_rooms (id, customer_phone, customer_name, status, assigned_to, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+        [roomId, fakePhone, name, 'active', support_user_id || null]
+      );
+
+      const newRoom = await db.get('SELECT * FROM support_rooms WHERE id = ?', [roomId]);
+      console.log('✅ Sala de suporte criada:', newRoom);
+      return res.json(newRoom);
     }
 
-    await query('DELETE FROM profiles WHERE id = $1', [userId]);
+    // Senão, é uma sala de atendimento (requer customer_phone)
+    if (!customer_phone || customer_phone.trim() === '') {
+      console.error('❌ Telefone do cliente não fornecido');
+      return res.status(400).json({
+        error: 'Telefone do cliente ou nome da sala é obrigatório',
+        received: req.body
+      });
+    }
 
+    // Validar formato do telefone
+    const phoneClean = customer_phone.replace(/\D/g, '');
+    if (phoneClean.length < 10) {
+      console.error('❌ Telefone inválido:', customer_phone);
+      return res.status(400).json({
+        error: 'Telefone do cliente deve ter pelo menos 10 dígitos',
+        received: customer_phone
+      });
+    }
+
+    console.log('💾 Criando sala de atendimento:', {
+      roomId,
+      customer_phone: phoneClean,
+      customer_name: customer_name || 'Cliente',
+      status: status || 'waiting',
+      assigned_to: assigned_to || null
+    });
+
+    await db.run(
+      `INSERT INTO support_rooms (id, customer_phone, customer_name, status, assigned_to, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      [roomId, phoneClean, customer_name || 'Cliente', status || 'waiting', assigned_to || null]
+    );
+
+    const newRoom = await db.get('SELECT * FROM support_rooms WHERE id = ?', [roomId]);
+
+    console.log('✅ Sala de atendimento criada:', newRoom);
+    res.json(newRoom);
+  } catch (error: any) {
+    console.error('❌ Erro ao criar sala:', error);
+    res.status(500).json({
+      error: 'Erro ao criar sala',
+      details: error.message
+    });
+  }
+});
+
+// Deletar sala de suporte
+router.delete('/support-rooms/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+
+    await db.run('DELETE FROM support_rooms WHERE id = ?', [id]);
     res.json({ success: true });
   } catch (error) {
-    console.error('Delete admin error:', error);
-    res.status(500).json({ error: 'Erro ao deletar administrador' });
+    console.error('Erro ao deletar sala:', error);
+    res.status(500).json({ error: 'Erro ao deletar sala' });
   }
 });
 
-// Create first admin (public endpoint - only works if no admins exist)
-router.post('/first', async (req, res) => {
+// Buscar usuários de suporte
+// ============================================
+// APIS PARA GERENCIAR SUPORTES (NOVA ESTRUTURA)
+// ============================================
+
+// Função para gerar matrícula automática de 6 dígitos
+async function generateMatricula(db: any): Promise<string> {
+  let matricula: string;
+  let exists = true;
+  
+  while (exists) {
+    // Gerar número aleatório de 6 dígitos
+    matricula = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Verificar se já existe
+    const existing = await db.get('SELECT id FROM supports WHERE matricula = ?', [matricula]);
+    exists = !!existing;
+  }
+  
+  return matricula!;
+}
+
+// Listar suportes
+router.get('/supports', async (req, res) => {
   try {
-    const { email, password, full_name } = req.body;
+    const db = await getDatabase();
+    const supports = await db.all(`
+      SELECT s.*, a.nome as admin_nome 
+      FROM supports s 
+      LEFT JOIN admins a ON s.admin_id = a.id 
+      ORDER BY s.nome
+    `);
+    res.json(supports);
+  } catch (error) {
+    console.error('Erro ao buscar suportes:', error);
+    res.status(500).json({ error: 'Erro ao buscar suportes' });
+  }
+});
 
-    // Check if any admin exists
-    const adminCheck = await query(
-      'SELECT COUNT(*) as count FROM user_roles WHERE role = $1',
-      ['admin']
-    );
-
-    if (parseInt(adminCheck.rows[0].count) > 0) {
-      return res.status(403).json({ error: 'Administrador já existe no sistema' });
+// Criar suporte
+router.post('/supports', async (req, res) => {
+  try {
+    const { nome, admin_id } = req.body;
+    
+    if (!nome || !admin_id) {
+      return res.status(400).json({ error: 'Nome e admin_id são obrigatórios' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const db = await getDatabase();
+    
+    // Verificar se o admin existe
+    const admin = await db.get('SELECT id FROM admins WHERE id = ?', [admin_id]);
+    if (!admin) {
+      return res.status(400).json({ error: 'Admin não encontrado' });
+    }
 
-    const userResult = await query(
-      `INSERT INTO profiles (email, full_name, password_hash)
-       VALUES ($1, $2, $3)
-       RETURNING id, email, full_name`,
-      [email, full_name, hashedPassword]
-    );
+    // Gerar matrícula automática
+    const matricula = await generateMatricula(db);
 
-    const newUser = userResult.rows[0];
+    // Criar suporte
+    const result = await db.run(`
+      INSERT INTO supports (nome, matricula, admin_id) 
+      VALUES (?, ?, ?)
+    `, [nome, matricula, admin_id]);
 
-    await query(
-      'INSERT INTO user_roles (user_id, role) VALUES ($1, $2)',
-      [newUser.id, 'super_admin']
-    );
+    // Buscar o suporte criado
+    const newSupport = await db.get(`
+      SELECT s.*, a.nome as admin_nome 
+      FROM supports s 
+      LEFT JOIN admins a ON s.admin_id = a.id 
+      WHERE s.id = ?
+    `, [result.lastID]);
 
-    res.status(201).json({ 
-      success: true, 
-      user: newUser 
-    });
+    res.status(201).json(newSupport);
   } catch (error) {
-    console.error('Create first admin error:', error);
-    res.status(500).json({ error: 'Erro ao criar primeiro administrador' });
+    console.error('Erro ao criar suporte:', error);
+    res.status(500).json({ error: 'Erro ao criar suporte' });
+  }
+});
+
+// Atualizar suporte
+router.put('/supports/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, admin_id } = req.body;
+    
+    if (!nome || !admin_id) {
+      return res.status(400).json({ error: 'Nome e admin_id são obrigatórios' });
+    }
+
+    const db = await getDatabase();
+    
+    // Verificar se o suporte existe
+    const support = await db.get('SELECT id FROM supports WHERE id = ?', [id]);
+    if (!support) {
+      return res.status(404).json({ error: 'Suporte não encontrado' });
+    }
+
+    // Verificar se o admin existe
+    const admin = await db.get('SELECT id FROM admins WHERE id = ?', [admin_id]);
+    if (!admin) {
+      return res.status(400).json({ error: 'Admin não encontrado' });
+    }
+
+    // Atualizar suporte
+    await db.run(`
+      UPDATE supports 
+      SET nome = ?, admin_id = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `, [nome, admin_id, id]);
+
+    // Buscar o suporte atualizado
+    const updatedSupport = await db.get(`
+      SELECT s.*, a.nome as admin_nome 
+      FROM supports s 
+      LEFT JOIN admins a ON s.admin_id = a.id 
+      WHERE s.id = ?
+    `, [id]);
+
+    res.json(updatedSupport);
+  } catch (error) {
+    console.error('Erro ao atualizar suporte:', error);
+    res.status(500).json({ error: 'Erro ao atualizar suporte' });
+  }
+});
+
+// Deletar suporte
+router.delete('/supports/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    
+    // Verificar se o suporte existe
+    const support = await db.get('SELECT id FROM supports WHERE id = ?', [id]);
+    if (!support) {
+      return res.status(404).json({ error: 'Suporte não encontrado' });
+    }
+
+    // Deletar suporte
+    await db.run('DELETE FROM supports WHERE id = ?', [id]);
+    
+    res.json({ message: 'Suporte deletado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao deletar suporte:', error);
+    res.status(500).json({ error: 'Erro ao deletar suporte' });
+  }
+});
+
+// ============================================
+// APIS PARA GERENCIAR ADMINS
+// ============================================
+
+// Listar admins
+router.get('/admins', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const admins = await db.all(`
+      SELECT id, nome, email, cpf, role, created_at, updated_at 
+      FROM admins 
+      ORDER BY nome
+    `);
+    res.json(admins);
+  } catch (error) {
+    console.error('Erro ao buscar admins:', error);
+    res.status(500).json({ error: 'Erro ao buscar admins' });
+  }
+});
+
+// Criar admin
+router.post('/admins', async (req, res) => {
+  try {
+    const { nome, email, senha, cpf, role = 'admin' } = req.body;
+    
+    if (!nome || !email || !senha) {
+      return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
+    }
+
+    const db = await getDatabase();
+    
+    // Verificar se o email já existe
+    const existingAdmin = await db.get('SELECT id FROM admins WHERE email = ?', [email]);
+    if (existingAdmin) {
+      return res.status(400).json({ error: 'Email já está em uso' });
+    }
+
+    // Criar admin (senha será hasheada no frontend ou middleware)
+    const result = await db.run(`
+      INSERT INTO admins (nome, email, senha, cpf, role) 
+      VALUES (?, ?, ?, ?, ?)
+    `, [nome, email, senha, cpf, role]);
+
+    // Buscar o admin criado (sem a senha)
+    const newAdmin = await db.get(`
+      SELECT id, nome, email, cpf, role, created_at, updated_at 
+      FROM admins 
+      WHERE id = ?
+    `, [result.lastID]);
+
+    res.status(201).json(newAdmin);
+  } catch (error) {
+    console.error('Erro ao criar admin:', error);
+    res.status(500).json({ error: 'Erro ao criar admin' });
+  }
+});
+
+// Deletar admin
+router.delete('/admins/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    
+    // Verificar se o admin existe
+    const admin = await db.get('SELECT id FROM admins WHERE id = ?', [id]);
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin não encontrado' });
+    }
+
+    // Verificar se há suportes vinculados
+    const linkedSupports = await db.get('SELECT COUNT(*) as count FROM supports WHERE admin_id = ?', [id]);
+    if (linkedSupports.count > 0) {
+      return res.status(400).json({ error: 'Não é possível deletar admin com suportes vinculados' });
+    }
+
+    // Deletar admin
+    await db.run('DELETE FROM admins WHERE id = ?', [id]);
+    
+    res.json({ message: 'Admin deletado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao deletar admin:', error);
+    res.status(500).json({ error: 'Erro ao deletar admin' });
+  }
+});
+
+// ============================================
+// APIS LEGADAS (MANTER COMPATIBILIDADE)
+// ============================================
+
+router.get('/support-users', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const users = await db.all(
+      'SELECT * FROM support_users WHERE is_active = 1 ORDER BY full_name'
+    );
+    res.json(users);
+  } catch (error) {
+    console.error('Erro ao buscar usuários de suporte:', error);
+    res.status(500).json({ error: 'Erro ao buscar usuários de suporte' });
+  }
+});
+
+// Buscar instâncias WhatsApp
+router.get('/whatsapp-instances', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const instances = await db.all('SELECT * FROM whatsapp_connections');
+    res.json(instances);
+  } catch (error) {
+    console.error('Erro ao buscar instâncias WhatsApp:', error);
+    res.status(500).json({ error: 'Erro ao buscar instâncias WhatsApp' });
+  }
+});
+
+// Buscar instância WhatsApp do admin/suporte logado
+router.get('/whatsapp-instance', async (req, res) => {
+  try {
+    const db = await getDatabase();
+
+    // Buscar a primeira instância conectada
+    // TODO: Vincular com o admin/suporte específico quando implementar multi-admin
+    const instance = await db.get(
+      'SELECT * FROM whatsapp_connections WHERE status = ? ORDER BY created_at DESC LIMIT 1',
+      ['connected']
+    );
+
+    if (!instance) {
+      // Se não houver instância conectada, buscar qualquer uma
+      const anyInstance = await db.get(
+        'SELECT * FROM whatsapp_connections ORDER BY created_at DESC LIMIT 1'
+      );
+      return res.json({ instance: anyInstance });
+    }
+
+    res.json({ instance });
+  } catch (error) {
+    console.error('Erro ao buscar instância WhatsApp do admin:', error);
+    res.status(500).json({ error: 'Erro ao buscar instância WhatsApp' });
   }
 });
 

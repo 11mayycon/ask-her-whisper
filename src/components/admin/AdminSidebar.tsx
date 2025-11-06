@@ -20,12 +20,10 @@ import {
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
-  { icon: Shield, label: "Gerenciar Usuários", path: "/admin/users" },
+  { icon: Users, label: "Gerenciar Contas", path: "/admin/accounts" },
   { icon: MessageSquare, label: "Conectar WhatsApp", path: "/admin/whatsapp" },
   { icon: Brain, label: "Memória da IA", path: "/admin/ai-memory" },
   { icon: Brain, label: "Chat com IA", path: "/admin/ai-chat" },
-  { icon: Users, label: "Usuários de Suporte", path: "/admin/support-users" },
-  { icon: Users, label: "Gerenciar Salas", path: "/admin/support" },
   { icon: BarChart3, label: "Relatórios", path: "/admin/reports" },
   { icon: Settings, label: "Configurações", path: "/admin/settings" },
 ];
@@ -46,7 +44,7 @@ export const AdminSidebar = () => {
           </div>
           {open && (
             <div className="min-w-0">
-              <h1 className="text-lg font-bold truncate">ISA 2.5</h1>
+              <h1 className="text-lg font-bold truncate">InovaPro AI</h1>
               <p className="text-xs text-muted-foreground truncate">InovaPro Tech</p>
             </div>
           )}

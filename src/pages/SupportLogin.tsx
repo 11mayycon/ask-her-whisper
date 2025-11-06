@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Bot, IdCard, Shield, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { API_URL } from "@/lib/api-config";
 
 const SupportLogin = () => {
   const navigate = useNavigate();
@@ -22,29 +22,30 @@ const SupportLogin = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('support-login', {
-        body: { matricula: matricula.trim().toUpperCase() }
+      const response = await fetch(`${API_URL}/auth/support/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          matricula: matricula.trim()
+        }),
       });
 
-      if (error || !data?.success) {
+      const data = await response.json();
+
+      if (!response.ok) {
         toast.error(data?.error || "Não foi possível validar sua matrícula");
         return;
       }
 
-      const supportUser = data.supportUser;
-      const rooms = data.rooms;
+      // Salvar token e informações do suporte
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("support_user", JSON.stringify(data.support));
+      localStorage.setItem("user_role", "support");
 
-      if (!rooms || rooms.length === 0) {
-        toast.error("Nenhuma sala vinculada à sua matrícula");
-        return;
-      }
-
-      // Salvar informações na sessão
-      sessionStorage.setItem("support_user", JSON.stringify(supportUser));
-      sessionStorage.setItem("support_rooms", JSON.stringify(rooms || []));
-
-      toast.success(`Bem-vindo(a), ${supportUser.full_name}!`);
-      navigate("/support/salas");
+      toast.success(`Bem-vindo(a), ${data.support.nome}!`);
+      navigate("/support/ai-chat");
     } catch (error) {
       console.error("Erro ao fazer login:", error);
       toast.error("Erro ao acessar o sistema");
@@ -69,7 +70,7 @@ const SupportLogin = () => {
                 <Bot className="w-8 h-8" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">ISA 2.5</h1>
+                <h1 className="text-3xl font-bold">InovaPro AI</h1>
                 <p className="text-sm text-white/80">Powered by InovaPro Technology</p>
               </div>
             </div>
@@ -79,8 +80,8 @@ const SupportLogin = () => {
                 Atendimento<br />Inteligente 24/7
               </h2>
               <p className="text-lg text-white/90">
-                Acesse suas salas de atendimento e gerencie os clientes
-                de forma eficiente com suporte da inteligência artificial.
+                Acesse o sistema de atendimento inteligente e gerencie
+                os clientes de forma eficiente com suporte da inteligência artificial.
               </p>
 
               <div className="flex flex-col gap-4 mt-12">
@@ -127,7 +128,7 @@ const SupportLogin = () => {
             </div>
             <h2 className="text-3xl font-bold">Login do Suporte</h2>
             <p className="text-muted-foreground mt-2">
-              Acesse suas salas de atendimento
+              Acesse o sistema de atendimento inteligente
             </p>
           </div>
 
@@ -141,14 +142,14 @@ const SupportLogin = () => {
                   type="text"
                   placeholder="Digite sua matrícula"
                   value={matricula}
-                  onChange={(e) => setMatricula(e.target.value.toUpperCase())}
+                  onChange={(e) => setMatricula(e.target.value)}
                   className="h-12 text-base"
                   maxLength={20}
                   disabled={loading}
                   autoFocus
                 />
                 <p className="text-sm text-muted-foreground">
-                  Digite sua matrícula para acessar as salas vinculadas ao seu suporte.
+                  Digite sua matrícula para acessar o sistema de atendimento.
                 </p>
               </div>
             </div>

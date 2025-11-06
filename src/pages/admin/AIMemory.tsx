@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Brain, Save, Lightbulb, RefreshCw } from "lucide-react";
+
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
 
 export default function AIMemory() {
   const [instructions, setInstructions] = useState("");
@@ -18,14 +19,11 @@ export default function AIMemory() {
 
   const loadMemory = async () => {
     try {
-      const { data, error } = await supabase
-        .from('ai_memory')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-      
-      if (!error && data) {
-        setInstructions(data.instructions || "");
+      const response = await fetch(`${API_URL}/ai/memory`);
+      const data = await response.json();
+
+      if (data) {
+        setInstructions(data.value || "");
         if (data.updated_at) {
           setLastSaved(new Date(data.updated_at));
         }
@@ -45,24 +43,19 @@ export default function AIMemory() {
 
     try {
       setSaving(true);
-      
-      const { data: existing } = await supabase
-        .from('ai_memory')
-        .select('id')
-        .limit(1)
-        .maybeSingle();
 
-      if (existing) {
-        await supabase
-          .from('ai_memory')
-          .update({ instructions, updated_at: new Date().toISOString() })
-          .eq('id', existing.id);
-      } else {
-        await supabase
-          .from('ai_memory')
-          .insert({ instructions });
+      const response = await fetch(`${API_URL}/ai/memory`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ instructions })
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao salvar memória');
       }
-      
+
       setLastSaved(new Date());
       toast.success("Memória da IA salva com sucesso!");
     } catch (error) {

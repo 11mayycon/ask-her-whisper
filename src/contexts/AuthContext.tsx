@@ -1,7 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
+
+interface User {
+  id: string;
+  email: string;
+  full_name: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -13,6 +17,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "support" | "super_admin" | null>(null);
@@ -20,88 +26,90 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Register listener first to avoid missing auth events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        // Defer to avoid potential deadlocks
-        setTimeout(() => {
-          fetchUserRole(session.user!.id);
-        }, 0);
-      } else {
-        setUserRole(null);
-      }
-    });
-
     checkAuth();
-
-    return () => subscription.unsubscribe();
   }, []);
 
   const checkAuth = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchUserRole(session.user.id);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setLoading(false);
+        return;
       }
+
+      const response = await fetch(`${API_URL}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        localStorage.removeItem('auth_token');
+        setUser(null);
+        setUserRole(null);
+        setLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+      setUser(data.user);
+      setUserRole(data.role);
     } catch (error) {
       console.error('Error checking auth:', error);
+      localStorage.removeItem('auth_token');
+      setUser(null);
+      setUserRole(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchUserRole = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      const roles = (data ?? []).map((r: any) => r.role) as ("admin" | "support" | "super_admin")[];
-      const resolvedRole = roles.includes("super_admin")
-        ? "super_admin"
-        : roles.includes("admin")
-        ? "admin"
-        : roles.includes("support")
-        ? "support"
-        : null;
-
-      setUserRole(resolvedRole);
-      return resolvedRole;
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-      setUserRole(null);
-      return null;
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      console.log('🔐 Tentando fazer login...', { email, API_URL });
 
-    if (error) throw error;
-    if (!data.user) throw new Error("Erro ao fazer login");
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
 
-    // Resolve role and navigate
-    const resolvedRole = await fetchUserRole(data.user.id);
+      console.log('📡 Resposta recebida:', response.status);
 
-    if (resolvedRole === "admin" || resolvedRole === "super_admin") {
-      navigate("/admin/dashboard", { replace: true });
-    } else if (resolvedRole === "support") {
-      navigate("/support/select-room", { replace: true });
-    } else {
-      throw new Error("Usuário sem permissões adequadas");
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Erro ao fazer login' }));
+        console.error('❌ Erro na resposta:', error);
+        throw new Error(error.error || 'Erro ao fazer login');
+      }
+
+      const data = await response.json();
+      console.log('✅ Login bem-sucedido!', { role: data.role });
+
+      // Salvar token
+      localStorage.setItem('auth_token', data.token);
+
+      // Atualizar estado
+      setUser(data.user);
+      setUserRole(data.role);
+
+      // Navegar baseado na role
+      if (data.role === "admin" || data.role === "super_admin") {
+        navigate("/admin/dashboard", { replace: true });
+      } else if (data.role === "support") {
+        navigate("/support/select-room", { replace: true });
+      } else {
+        throw new Error("Usuário sem permissões adequadas");
+      }
+    } catch (error: any) {
+      console.error('💥 Erro ao fazer login:', error);
+      throw error;
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem('auth_token');
     setUser(null);
     setUserRole(null);
     navigate("/");

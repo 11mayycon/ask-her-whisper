@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bot, CheckCircle, Calendar, Users, TrendingUp, TrendingDown, Activity, BarChart3 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface DashboardStats {
   iaAtendendo: number;
@@ -12,6 +11,8 @@ interface DashboardStats {
   emAtendimento: number;
   finalizadosHoje: number;
 }
+
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
 
 const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
@@ -34,71 +35,15 @@ const Dashboard = () => {
     try {
       setLoading(true);
 
-      // Buscar atendimentos ativos pela IA
-      const { count: iaAtendendo } = await supabase
-        .from('attendances')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'in_progress')
-        .eq('assigned_to', 'ai');
-
-      // Buscar atendimentos finalizados (total)
-      const { count: finalizados } = await supabase
-        .from('attendances')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'finished');
-
-      // Buscar atendimentos dos últimos 15 dias
-      const quinzeDiasAtras = new Date();
-      quinzeDiasAtras.setDate(quinzeDiasAtras.getDate() - 15);
-      const { count: ultimos15Dias } = await supabase
-        .from('attendances')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', quinzeDiasAtras.toISOString());
-
-      // Buscar agentes online (assumindo que existe uma tabela support_users)
-      const { count: agentesOnline } = await supabase
-        .from('support_users')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true);
-
-      // Buscar atendimentos aguardando
-      const { count: aguardando } = await supabase
-        .from('attendances')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'waiting');
-
-      // Buscar atendimentos em atendimento
-      const { count: emAtendimento } = await supabase
-        .from('attendances')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'in_progress');
-
-      // Buscar atendimentos finalizados hoje
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
-      const { count: finalizadosHoje } = await supabase
-        .from('attendances')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'finished')
-        .gte('finished_at', hoje.toISOString());
+      // Buscar estatísticas do dashboard
+      const statsRes = await fetch(`${API_URL}/admin/stats`);
+      const statsData = await statsRes.json();
 
       // Buscar atividades recentes
-      const { data: activityData } = await supabase
-        .from('activities')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
+      const activitiesRes = await fetch(`${API_URL}/admin/activities`);
+      const activityData = await activitiesRes.json();
 
-      setStats({
-        iaAtendendo: iaAtendendo || 0,
-        finalizados: finalizados || 0,
-        ultimos15Dias: ultimos15Dias || 0,
-        agentesOnline: agentesOnline || 0,
-        aguardando: aguardando || 0,
-        emAtendimento: emAtendimento || 0,
-        finalizadosHoje: finalizadosHoje || 0,
-      });
-
+      setStats(statsData);
       setActivities(activityData || []);
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard:', error);

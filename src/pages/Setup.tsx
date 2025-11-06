@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Bot, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+// Removed Supabase import
 
 const Setup = () => {
   const navigate = useNavigate();
@@ -98,7 +98,7 @@ const Setup = () => {
           </div>
           <h1 className="text-3xl font-bold">Configuração Inicial</h1>
           <p className="text-muted-foreground mt-2">
-            ISA 2.5 - Sistema de Atendimento Inteligente
+            InovaPro AI - Sistema de Atendimento Inteligente
           </p>
         </div>
 

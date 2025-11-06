@@ -125,13 +125,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "attendances_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "support_rooms"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "attendances_whatsapp_connection_id_fkey"
             columns: ["whatsapp_connection_id"]
             isOneToOne: false
@@ -226,41 +219,6 @@ export type Database = {
         }
         Relationships: []
       }
-      room_members: {
-        Row: {
-          created_at: string | null
-          id: string
-          is_online: boolean | null
-          last_seen: string | null
-          room_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          is_online?: boolean | null
-          last_seen?: string | null
-          room_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          is_online?: boolean | null
-          last_seen?: string | null
-          room_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "room_members_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "support_rooms"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       settings: {
         Row: {
           created_at: string | null
@@ -336,39 +294,6 @@ export type Database = {
         }
         Relationships: []
       }
-      support_rooms: {
-        Row: {
-          admin_owner_id: string | null
-          created_at: string | null
-          description: string | null
-          id: string
-          max_members: number | null
-          name: string
-          support_user_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          admin_owner_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          max_members?: number | null
-          name: string
-          support_user_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          admin_owner_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          max_members?: number | null
-          name?: string
-          support_user_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       support_users: {
         Row: {
           created_at: string | null
@@ -434,7 +359,6 @@ export type Database = {
           phone_number: string | null
           qr_code: string | null
           status: string
-          support_room_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -447,7 +371,6 @@ export type Database = {
           phone_number?: string | null
           qr_code?: string | null
           status?: string
-          support_room_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -460,18 +383,9 @@ export type Database = {
           phone_number?: string | null
           qr_code?: string | null
           status?: string
-          support_room_id?: string | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_support_room"
-            columns: ["support_room_id"]
-            isOneToOne: false
-            referencedRelation: "support_rooms"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       whatsapp_contacts: {
         Row: {

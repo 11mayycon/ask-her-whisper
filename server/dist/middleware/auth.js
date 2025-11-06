@@ -13,8 +13,17 @@ const authenticateToken = (req, res, next) => {
     }
     try {
         const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
-        req.userId = decoded.userId;
-        req.userRole = decoded.role;
+        // Suporte para tokens de usuário e suporte
+        if (decoded.type === 'support') {
+            req.supportId = decoded.supportId;
+            req.adminId = decoded.adminId;
+            req.userRole = decoded.role;
+            req.type = decoded.type;
+        }
+        else {
+            req.userId = decoded.userId;
+            req.userRole = decoded.role;
+        }
         next();
     }
     catch (error) {

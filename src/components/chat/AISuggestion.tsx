@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Copy, Send, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+// Removed Supabase import
 import { toast } from "sonner";
 
 interface AISuggestionProps {

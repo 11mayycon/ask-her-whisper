@@ -1,35 +1,93 @@
 import express from 'express';
 import { whatsappService } from '../services/whatsapp';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
-// Status da conexão
-router.get('/status', async (req, res) => {
+// Middleware para verificar autenticação
+const authenticate = (req: any, res: any, next: any) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token não fornecido' });
+  }
+
   try {
-    const status = whatsappService.getStatus();
-    res.json({ success: true, status });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    req.user = decoded;
+    next();
   } catch (error) {
-    console.error('Erro ao verificar status:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+};
+
+// Conectar WhatsApp - Criar nova instância
+router.post('/connect', authenticate, async (req: any, res) => {
+  try {
+    const userEmail = req.user.email || req.body.email;
+
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email do usuário não fornecido'
+      });
+    }
+
+    const result = await whatsappService.createUserInstance(userEmail);
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error: any) {
+    console.error('Erro ao conectar WhatsApp:', error);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message || 'Erro ao conectar'
     });
   }
 });
 
-// Obter QR Code
-router.get('/qrcode', async (req, res) => {
+// Status da conexão de uma instância
+router.get('/status/:instanceName?', async (req, res) => {
   try {
-    const qrCode = whatsappService.getQRCode();
-    if (!qrCode) {
-      return res.json({ success: true, qrCode: null, message: 'QR Code não disponível' });
+    const instanceName = req.params.instanceName || req.query.instance as string;
+
+    if (!instanceName) {
+      const status = whatsappService.getStatus();
+      return res.json({ success: true, status });
     }
-    res.json({ success: true, qrCode });
+
+    const status = await whatsappService.getInstanceStatus(instanceName);
+    res.json({ success: true, ...status });
   } catch (error) {
+    console.error('Erro ao verificar status:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    });
+  }
+});
+
+// Obter QR Code de uma instância
+router.get('/qrcode/:instanceName', async (req, res) => {
+  try {
+    const { instanceName } = req.params;
+
+    if (!instanceName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nome da instância não fornecido'
+      });
+    }
+
+    const result = await whatsappService.getInstanceQRCode(instanceName);
+    res.json({ success: true, ...result });
+  } catch (error: any) {
     console.error('Erro ao buscar QR code:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message || 'Erro ao buscar QR Code'
     });
   }
 });
@@ -85,16 +143,48 @@ router.get('/contacts', async (req, res) => {
   }
 });
 
-// Desconectar
-router.post('/disconnect', async (req, res) => {
+// Desconectar instância
+router.post('/disconnect/:instanceName', authenticate, async (req, res) => {
   try {
-    await whatsappService.disconnect();
-    res.json({ success: true, message: 'WhatsApp desconectado com sucesso' });
-  } catch (error) {
+    const { instanceName } = req.params;
+
+    if (!instanceName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nome da instância não fornecido'
+      });
+    }
+
+    await whatsappService.disconnectInstance(instanceName);
+    res.json({ success: true, message: 'Instância desconectada com sucesso' });
+  } catch (error: any) {
     console.error('Erro ao desconectar:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Erro ao desconectar' 
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message || 'Erro ao desconectar'
+    });
+  }
+});
+
+// Deletar instância
+router.delete('/instance/:instanceName', authenticate, async (req, res) => {
+  try {
+    const { instanceName } = req.params;
+
+    if (!instanceName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nome da instância não fornecido'
+      });
+    }
+
+    await whatsappService.deleteUserInstance(instanceName);
+    res.json({ success: true, message: 'Instância deletada com sucesso' });
+  } catch (error: any) {
+    console.error('Erro ao deletar instância:', error);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message || 'Erro ao deletar instância'
     });
   }
 });

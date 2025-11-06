@@ -1,72 +1,143 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const database_1 = require("../config/database");
-const auth_1 = require("../middleware/auth");
+const sqlite_1 = require("../config/sqlite");
+const crypto_1 = require("crypto");
 const router = (0, express_1.Router)();
-// Get all support rooms
-router.get('/rooms', auth_1.authenticateToken, auth_1.requireAdmin, async (req, res) => {
-    try {
-        const result = await (0, database_1.query)(`SELECT sr.*, 
-              p.full_name as admin_name,
-              (SELECT COUNT(*) FROM room_members WHERE room_id = sr.id) as member_count
-       FROM support_rooms sr
-       LEFT JOIN profiles p ON sr.admin_owner_id = p.id
-       ORDER BY sr.created_at DESC`);
-        res.json({ rooms: result.rows });
-    }
-    catch (error) {
-        console.error('Get rooms error:', error);
-        res.status(500).json({ error: 'Erro ao buscar salas' });
-    }
-});
-// Create support room
-router.post('/rooms', auth_1.authenticateToken, auth_1.requireAdmin, async (req, res) => {
-    try {
-        const { name, description, max_members } = req.body;
-        if (!name) {
-            return res.status(400).json({ error: 'Nome da sala é obrigatório' });
-        }
-        const result = await (0, database_1.query)(`INSERT INTO support_rooms (name, description, max_members, admin_owner_id)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`, [name, description, max_members || 10, req.userId]);
-        res.status(201).json({ room: result.rows[0] });
-    }
-    catch (error) {
-        console.error('Create room error:', error);
-        res.status(500).json({ error: 'Erro ao criar sala' });
-    }
-});
-// Delete support room
-router.delete('/rooms/:roomId', auth_1.authenticateToken, auth_1.requireAdmin, async (req, res) => {
-    try {
-        const { roomId } = req.params;
-        await (0, database_1.query)('DELETE FROM support_rooms WHERE id = $1', [roomId]);
-        res.json({ success: true });
-    }
-    catch (error) {
-        console.error('Delete room error:', error);
-        res.status(500).json({ error: 'Erro ao deletar sala' });
-    }
-});
-// Support login
+// Login de suporte por matrícula
 router.post('/login', async (req, res) => {
     try {
         const { matricula } = req.body;
-        if (!matricula) {
+        if (!matricula || !matricula.trim()) {
             return res.status(400).json({ error: 'Matrícula é obrigatória' });
         }
-        const result = await (0, database_1.query)(`SELECT id, full_name, email, matricula, is_active
-       FROM support_users
-       WHERE matricula = $1 AND is_active = true`, [matricula]);
-        if (result.rows.length === 0) {
-            return res.status(401).json({ error: 'Matrícula não encontrada ou inativa' });
+        const db = await (0, sqlite_1.getDatabase)();
+        // Buscar usuário de suporte pela matrícula
+        const supportUser = await db.get("SELECT * FROM support_users WHERE matricula = ? AND is_active = 1", [matricula.trim().toUpperCase()]);
+        if (!supportUser) {
+            return res.status(404).json({
+                success: false,
+                error: 'Matrícula não encontrada ou usuário inativo'
+            });
         }
-        res.json({ user: result.rows[0] });
+        // Buscar salas vinculadas ao usuário de suporte
+        const rooms = await db.all(`SELECT sr.*,
+        (SELECT COUNT(*) FROM messages WHERE room_id = sr.id AND sender_type = 'customer') as unread_count
+       FROM support_rooms sr
+       WHERE sr.assigned_to = ?
+       ORDER BY sr.updated_at DESC`, [supportUser.user_id]);
+        res.json({
+            success: true,
+            supportUser: {
+                id: supportUser.id,
+                user_id: supportUser.user_id,
+                full_name: supportUser.full_name,
+                email: supportUser.email,
+                phone: supportUser.phone,
+                matricula: supportUser.matricula,
+                max_concurrent_chats: supportUser.max_concurrent_chats
+            },
+            rooms: rooms || []
+        });
     }
     catch (error) {
-        console.error('Support login error:', error);
-        res.status(500).json({ error: 'Erro ao fazer login' });
+        console.error('Erro ao fazer login de suporte:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Erro ao processar login'
+        });
+    }
+});
+// Listar usuários de suporte
+router.get('/users', async (req, res) => {
+    try {
+        const db = await (0, sqlite_1.getDatabase)();
+        const users = await db.all("SELECT * FROM support_users ORDER BY created_at DESC");
+        res.json(users);
+    }
+    catch (error) {
+        console.error('Erro ao buscar usuários:', error);
+        res.status(500).json({ error: 'Erro ao buscar usuários de suporte' });
+    }
+});
+// Criar usuário de suporte
+router.post('/users', async (req, res) => {
+    try {
+        const { user_id, full_name, email, phone, matricula } = req.body;
+        if (!full_name || !email || !matricula) {
+            return res.status(400).json({ error: 'Nome, email e matrícula são obrigatórios' });
+        }
+        const db = await (0, sqlite_1.getDatabase)();
+        // Verificar se já existe
+        const existing = await db.get("SELECT id FROM support_users WHERE email = ? OR matricula = ?", [email, matricula]);
+        if (existing) {
+            return res.status(409).json({ error: 'Email ou matrícula já cadastrados', code: '23505' });
+        }
+        const id = (0, crypto_1.randomUUID)();
+        const supportUserId = user_id || (0, crypto_1.randomUUID)();
+        await db.run("INSERT INTO support_users (id, user_id, full_name, email, phone, matricula, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)", [id, supportUserId, full_name, email, phone || null, matricula]);
+        const newUser = await db.get("SELECT * FROM support_users WHERE id = ?", [id]);
+        res.status(201).json(newUser);
+    }
+    catch (error) {
+        console.error('Erro ao criar usuário:', error);
+        res.status(500).json({ error: 'Erro ao criar usuário de suporte' });
+    }
+});
+// Atualizar usuário de suporte
+router.put('/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { full_name, email, phone, matricula } = req.body;
+        const db = await (0, sqlite_1.getDatabase)();
+        await db.run("UPDATE support_users SET full_name = ?, email = ?, phone = ?, matricula = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [full_name, email, phone || null, matricula, id]);
+        const updatedUser = await db.get("SELECT * FROM support_users WHERE id = ?", [id]);
+        res.json(updatedUser);
+    }
+    catch (error) {
+        console.error('Erro ao atualizar usuário:', error);
+        res.status(500).json({ error: 'Erro ao atualizar usuário de suporte' });
+    }
+});
+// Alternar status ativo/inativo
+router.patch('/users/:id/toggle', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const db = await (0, sqlite_1.getDatabase)();
+        const user = await db.get("SELECT is_active FROM support_users WHERE id = ?", [id]);
+        const newStatus = user.is_active ? 0 : 1;
+        await db.run("UPDATE support_users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [newStatus, id]);
+        const updatedUser = await db.get("SELECT * FROM support_users WHERE id = ?", [id]);
+        res.json(updatedUser);
+    }
+    catch (error) {
+        console.error('Erro ao alterar status:', error);
+        res.status(500).json({ error: 'Erro ao alterar status do usuário' });
+    }
+});
+// Deletar usuário de suporte
+router.delete('/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const db = await (0, sqlite_1.getDatabase)();
+        await db.run("DELETE FROM support_users WHERE id = ?", [id]);
+        res.json({ success: true });
+    }
+    catch (error) {
+        console.error('Erro ao deletar usuário:', error);
+        res.status(500).json({ error: 'Erro ao deletar usuário de suporte' });
+    }
+});
+// Listar salas
+router.get('/rooms', async (req, res) => {
+    try {
+        const db = await (0, sqlite_1.getDatabase)();
+        const rooms = await db.all("SELECT * FROM support_rooms ORDER BY created_at DESC");
+        res.json(rooms);
+    }
+    catch (error) {
+        console.error('Erro ao buscar salas:', error);
+        res.status(500).json({ error: 'Erro ao buscar salas' });
     }
 });
 exports.default = router;

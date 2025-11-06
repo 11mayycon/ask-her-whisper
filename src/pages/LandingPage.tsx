@@ -54,7 +54,7 @@ const LandingPage = () => {
         <div className="flex justify-between items-center mb-16">
           <div className="flex items-center gap-2">
             <Bot className="w-8 h-8 text-blue-400 animate-pulse" />
-            <span className="text-2xl font-bold text-white">ISA 2.5</span>
+            <span className="text-2xl font-bold text-white">InovaPro AI</span>
           </div>
           <Button 
             onClick={() => navigate('/support-login')}
@@ -130,10 +130,10 @@ const LandingPage = () => {
                     </p>
                   </div>
 
-                  <Button 
-                    size="lg" 
+                  <Button
+                    size="lg"
                     className="w-full text-lg h-16 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold shadow-lg shadow-blue-500/50 hover:shadow-xl hover:shadow-blue-500/60 transition-all duration-300 hover:scale-105 animate-float"
-                    onClick={() => navigate('/cadastro')}
+                    onClick={() => window.open('https://w.app/rcro09', '_blank')}
                   >
                     <Zap className="w-5 h-5 mr-2" />
                     Começar Agora
@@ -159,7 +159,7 @@ const LandingPage = () => {
                           <Bot className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1">
-                          <div className="text-white font-semibold">ISA 2.5</div>
+                          <div className="text-white font-semibold">InovaPro AI</div>
                           <div className="text-emerald-100 text-xs">online</div>
                         </div>
                       </div>

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Zap, Plus, Trash2, Copy } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+// Removed Supabase import
 import { toast } from "sonner";
 
 interface QuickReply {

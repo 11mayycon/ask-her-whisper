@@ -1,17 +1,61 @@
 version: '3.8'
 
 services:
-  isa-app:
+  isa_backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: isa_backend
+    restart: always
+    env_file:
+      - ./server/.env
+    ports:
+      - "3002:3001"
+    volumes:
+      - isa_data:/app/data
+    networks:
+      - inovapro-net
+    labels:
+      - "traefik.enable=true"
+      # HTTP Backend API
+      - "traefik.http.routers.isa-back-http.rule=Host(`isa.inovapro.cloud`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))"
+      - "traefik.http.routers.isa-back-http.entrypoints=web"
+      - "traefik.http.routers.isa-back-http.priority=100"
+      - "traefik.http.routers.isa-back-http.service=isa-back"
+      # HTTPS Backend API + WebSocket
+      - "traefik.http.routers.isa-back.rule=Host(`isa.inovapro.cloud`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`))"
+      - "traefik.http.routers.isa-back.entrypoints=websecure"
+      - "traefik.http.routers.isa-back.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.isa-back.priority=100"
+      - "traefik.http.routers.isa-back.service=isa-back"
+      # Service configuration
+      - "traefik.http.services.isa-back.loadbalancer.server.port=3001"
+
+  isa_frontend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: isa-app
-    ports:
-      - "8082:80"
-    environment:
-      - NODE_ENV=production
+    container_name: isa_frontend
+    restart: always
     env_file:
       - .env
-    restart: unless-stopped
     networks:
-      - default
+      - inovapro-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.isa-front-http.rule=Host(`isa.inovapro.cloud`)"
+      - "traefik.http.routers.isa-front-http.entrypoints=web"
+      - "traefik.http.routers.isa-front-http.priority=1"
+      - "traefik.http.routers.isa-front.rule=Host(`isa.inovapro.cloud`)"
+      - "traefik.http.routers.isa-front.entrypoints=websecure"
+      - "traefik.http.routers.isa-front.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.isa-front.priority=1"
+      - "traefik.http.services.isa-front.loadbalancer.server.port=80"
+
+networks:
+  inovapro-net:
+    external: true
+
+volumes:
+  isa_data:
+    driver: local

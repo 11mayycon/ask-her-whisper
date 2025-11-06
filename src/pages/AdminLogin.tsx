@@ -57,7 +57,7 @@ const AdminLogin = () => {
                 <Bot className="w-8 h-8" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">ISA 2.5</h1>
+                <h1 className="text-3xl font-bold">InovaPro AI</h1>
                 <p className="text-sm text-white/80">Powered by InovaPro Technology</p>
               </div>
             </div>

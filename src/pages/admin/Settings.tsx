@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Building, User, Bell, Save, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -13,11 +12,6 @@ import { useTheme } from "next-themes";
 export default function Settings() {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
-  const [loading, setLoading] = useState(false);
-  const [profile, setProfile] = useState({
-    full_name: "",
-    email: "",
-  });
   const [notifications, setNotifications] = useState({
     email: true,
     sound: true,
@@ -25,91 +19,21 @@ export default function Settings() {
   });
 
   useEffect(() => {
-    if (user) {
-      loadProfile();
-      loadNotifications();
+    // Carregar do localStorage
+    const saved = localStorage.getItem('notifications');
+    if (saved) {
+      setNotifications(JSON.parse(saved));
     }
-  }, [user]);
-
-  const loadProfile = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (!error && data) {
-        setProfile({
-          full_name: data.full_name || "",
-          email: data.email || "",
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao carregar perfil:", error);
-    }
-  };
-
-  const loadNotifications = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'notifications')
-        .maybeSingle();
-      
-      if (!error && data?.value) {
-        setNotifications(data.value);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar configurações:", error);
-    }
-  };
-
-  const saveProfile = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ full_name: profile.full_name })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      toast.success("Perfil atualizado com sucesso!");
-    } catch (error) {
-      console.error("Erro ao salvar perfil:", error);
-      toast.error("Erro ao salvar perfil");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, []);
 
   const saveNotifications = async () => {
     try {
-      setLoading(true);
-
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          key: 'notifications',
-          value: notifications,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-
+      // Salvar no localStorage temporariamente
+      localStorage.setItem('notifications', JSON.stringify(notifications));
       toast.success("Preferências salvas com sucesso!");
     } catch (error) {
       console.error("Erro ao salvar notificações:", error);
       toast.error("Erro ao salvar preferências");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -140,8 +64,8 @@ export default function Settings() {
             <Label htmlFor="company">Nome da Empresa</Label>
             <Input
               id="company"
-              placeholder="ISA 2.5"
-              defaultValue="ISA 2.5"
+              placeholder="InovaPro AI"
+                defaultValue="InovaPro AI"
             />
           </div>
 
@@ -176,8 +100,8 @@ export default function Settings() {
             <Label htmlFor="name">Nome Completo</Label>
             <Input
               id="name"
-              value={profile.full_name}
-              onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
+              value={user?.full_name || ""}
+              disabled
               placeholder="Seu nome"
             />
           </div>
@@ -187,7 +111,7 @@ export default function Settings() {
             <Input
               id="email"
               type="email"
-              value={profile.email}
+              value={user?.email || ""}
               disabled
             />
             <p className="text-xs text-muted-foreground">
@@ -195,7 +119,7 @@ export default function Settings() {
             </p>
           </div>
 
-          <Button onClick={saveProfile} disabled={loading}>
+          <Button onClick={() => toast.info("Função em desenvolvimento")}>
             <Save className="w-4 h-4 mr-2" />
             Salvar Perfil
           </Button>
@@ -259,7 +183,7 @@ export default function Settings() {
             />
           </div>
 
-          <Button onClick={saveNotifications} disabled={loading}>
+          <Button onClick={saveNotifications}>
             <Save className="w-4 h-4 mr-2" />
             Salvar Notificações
           </Button>

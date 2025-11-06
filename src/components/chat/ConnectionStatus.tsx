@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+// Removed Supabase import
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 

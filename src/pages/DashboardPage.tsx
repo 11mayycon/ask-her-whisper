@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { API_URL, fetchWithAuth } from "@/lib/api-config";
 import { AlertCircle, CheckCircle, Calendar } from "lucide-react";
 
 interface Subscription {
@@ -34,16 +34,20 @@ const DashboardPage = () => {
 
   const loadSubscription = async () => {
     if (!user?.id) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
 
-      if (error) throw error;
-      
+    try {
+      const response = await fetchWithAuth(`${API_URL}/auth/subscription`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          // No subscription found
+          setSubscription(null);
+          return;
+        }
+        throw new Error('Erro ao carregar assinatura');
+      }
+
+      const data = await response.json();
       setSubscription(data);
 
       // Calculate days remaining
@@ -103,7 +107,7 @@ const DashboardPage = () => {
     <div className="min-h-screen bg-background p-4">
       <div className="container mx-auto max-w-4xl py-8 space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Painel ISA 2.5</h1>
+          <h1 className="text-3xl font-bold">Painel InovaPro AI</h1>
           <Button variant="outline" onClick={handleLogout}>
             Sair
           </Button>
@@ -171,7 +175,7 @@ const DashboardPage = () => {
 
             <p className="text-sm text-muted-foreground text-center">
               {isExpired
-                ? "Sua assinatura expirou. Renove para continuar usando o ISA 2.5."
+                ? "Sua assinatura expirou. Renove para continuar usando o InovaPro AI."
                 : "Renove antes do vencimento e ganhe mais 30 dias."}
             </p>
           </CardContent>

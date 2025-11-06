@@ -4,6 +4,9 @@ import jwt from 'jsonwebtoken';
 export interface AuthRequest extends Request {
   userId?: string;
   userRole?: string;
+  supportId?: string;
+  adminId?: string;
+  type?: string;
 }
 
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -16,8 +19,18 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    req.userId = decoded.userId;
-    req.userRole = decoded.role;
+    
+    // Suporte para tokens de usuário e suporte
+    if (decoded.type === 'support') {
+      req.supportId = decoded.supportId;
+      req.adminId = decoded.adminId;
+      req.userRole = decoded.role;
+      req.type = decoded.type;
+    } else {
+      req.userId = decoded.userId;
+      req.userRole = decoded.role;
+    }
+    
     next();
   } catch (error) {
     return res.status(403).json({ error: 'Token inválido' });

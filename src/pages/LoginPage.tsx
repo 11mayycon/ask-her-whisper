@@ -24,7 +24,7 @@ const LoginPage = () => {
       
       toast({
         title: "Login realizado!",
-        description: "Bem-vindo ao ISA 2.5",
+        description: "Bem-vindo ao InovaPro AI",
       });
     } catch (error: any) {
       console.error("Login error:", error);
@@ -42,7 +42,7 @@ const LoginPage = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">Login ISA 2.5</CardTitle>
+          <CardTitle className="text-2xl text-center">Login InovaPro AI</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,9 +76,9 @@ const LoginPage = () => {
               type="button"
               variant="ghost"
               className="w-full"
-              onClick={() => navigate("/cadastro")}
+              onClick={() => window.open("https://w.app/rcro09", "_blank")}
             >
-              Não tem conta? Cadastre-se
+              Não tem conta? Fale conosco
             </Button>
 
             <Button
