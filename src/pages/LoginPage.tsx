@@ -20,12 +20,21 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      const { role } = await signIn(email, password);
       
       toast({
         title: "Login realizado!",
         description: "Bem-vindo ao InovaPro AI",
       });
+
+      // Navigate based on role
+      if (role === "admin" || role === "super_admin") {
+        navigate("/admin/dashboard", { replace: true });
+      } else if (role === "support") {
+        navigate("/support/chat", { replace: true });
+      } else {
+        navigate("/painel", { replace: true });
+      }
     } catch (error: any) {
       console.error("Login error:", error);
       toast({

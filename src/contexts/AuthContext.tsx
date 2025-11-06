@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 interface User {
@@ -11,21 +10,17 @@ interface User {
 interface AuthContextType {
   user: User | null;
   userRole: "admin" | "support" | "super_admin" | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ role: "admin" | "support" | "super_admin" | null }>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Backend API não é mais usada para autenticação; usamos Supabase diretamente
-const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
-
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "support" | "super_admin" | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     checkAuth();
@@ -82,13 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser({ id: data.user!.id, email: data.user!.email || '', full_name: data.user!.user_metadata?.full_name || '' });
       setUserRole(role);
 
-      if (role === "admin" || role === "super_admin") {
-        navigate("/admin/dashboard", { replace: true });
-      } else if (role === "support") {
-        navigate("/support/select-room", { replace: true });
-      } else {
-        navigate("/", { replace: true });
-      }
+      return { role };
     } catch (error: any) {
       console.error('💥 Erro ao fazer login:', error);
       throw error;
@@ -99,7 +88,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await supabase.auth.signOut();
     setUser(null);
     setUserRole(null);
-    navigate("/");
   };
 
   return (
