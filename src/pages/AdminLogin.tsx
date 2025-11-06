@@ -27,7 +27,13 @@ const AdminLogin = () => {
 
     setLoading(true);
     try {
-      await signIn(formData.email, formData.password);
+      const { role } = await signIn(formData.email, formData.password);
+      
+      if (role === 'super_admin' || role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       console.error("Login error:", error);
       toast.error("Email ou senha incorretos");

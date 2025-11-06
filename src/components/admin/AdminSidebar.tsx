@@ -1,5 +1,5 @@
-import { NavLink, useLocation } from "react-router-dom";
-import { Bot, LayoutDashboard, MessageSquare, Brain, Users, BarChart3, Settings, LogOut, Moon, Sun, Shield } from "lucide-react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Bot, LayoutDashboard, Settings, LogOut, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
@@ -25,9 +25,15 @@ const menuItems = [
 
 export const AdminSidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { theme, setTheme } = useTheme();
   const { open } = useSidebar();
+
+  const handleSignOut = () => {
+    signOut();
+    navigate('/');
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -104,7 +110,7 @@ export const AdminSidebar = () => {
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={signOut} tooltip="Sair">
+            <SidebarMenuButton onClick={handleSignOut} tooltip="Sair">
               <LogOut />
               <span>Sair</span>
             </SidebarMenuButton>

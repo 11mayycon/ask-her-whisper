@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -13,7 +12,7 @@ type AuthContextType = {
   user: User | null;
   role: string | null;
   token: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ role: string }>;
   signOut: () => void;
   loading: boolean;
 };
@@ -25,7 +24,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -54,11 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       toast.success('Login realizado com sucesso!');
       
-      if (data.role === 'super_admin' || data.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/');
-      }
+      return { role: data.role };
     } catch (error: any) {
       console.error('Login error:', error);
       toast.error(error.message || 'Erro ao fazer login');
@@ -73,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('role');
-    navigate('/');
     toast.success('Logout realizado com sucesso');
   };
 
