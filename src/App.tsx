@@ -21,6 +21,10 @@ import { ClientLayout } from "./components/client/ClientLayout";
 import AdminClients from "./pages/admin/AdminClients";
 import AdminRequests from "./pages/admin/AdminRequests";
 import AdminAIConfig from "./pages/admin/AdminAIConfig";
+import AdminWhatsApp from "./pages/admin/AdminWhatsApp";
+import AdminPlans from "./pages/admin/AdminPlans";
+import AdminReports from "./pages/admin/AdminReports";
+import AdminLogs from "./pages/admin/AdminLogs";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +37,10 @@ const router = createBrowserRouter(
     { path: "/admin/clients", element: <AdminLayout><AdminClients /></AdminLayout> },
     { path: "/admin/requests", element: <AdminLayout><AdminRequests /></AdminLayout> },
     { path: "/admin/ai-config", element: <AdminLayout><AdminAIConfig /></AdminLayout> },
+    { path: "/admin/whatsapp", element: <AdminLayout><AdminWhatsApp /></AdminLayout> },
+    { path: "/admin/plans", element: <AdminLayout><AdminPlans /></AdminLayout> },
+    { path: "/admin/reports", element: <AdminLayout><AdminReports /></AdminLayout> },
+    { path: "/admin/logs", element: <AdminLayout><AdminLogs /></AdminLayout> },
     { path: "/admin/settings", element: <AdminLayout><Settings /></AdminLayout> },
     { path: "/client/login", element: <ClientLogin /> },
     { path: "/client/register", element: <ClientRegister /> },
@@ -43,9 +51,7 @@ const router = createBrowserRouter(
     { path: "/support-login", element: <EntrySelection /> },
     { path: "*", element: <LandingPage /> },
   ],
-  {
-    future: { v7_relativeSplatPath: true },
-  }
+  { future: { v7_relativeSplatPath: true } }
 );
 
 function App() {
