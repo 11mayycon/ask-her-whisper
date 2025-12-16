@@ -14,403 +14,266 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_memory: {
+      analytics_cache: {
         Row: {
-          context: string
-          created_at: string
           id: string
-          updated_at: string
-        }
-        Insert: {
-          context: string
-          created_at?: string
-          id?: string
-          updated_at?: string
-        }
-        Update: {
-          context?: string
-          created_at?: string
-          id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      attendances: {
-        Row: {
-          agent_id: string | null
-          assigned_to: string | null
-          created_at: string
-          ended_at: string | null
-          id: string
-          notes: string | null
-          rating: number | null
-          room_id: string | null
-          started_at: string
-          status: string
-          support_user_id: string | null
+          payload: Json
+          periodo: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
-          agent_id?: string | null
-          assigned_to?: string | null
-          created_at?: string
-          ended_at?: string | null
           id?: string
-          notes?: string | null
-          rating?: number | null
-          room_id?: string | null
-          started_at?: string
-          status?: string
-          support_user_id?: string | null
+          payload: Json
+          periodo: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
-          agent_id?: string | null
-          assigned_to?: string | null
-          created_at?: string
-          ended_at?: string | null
           id?: string
-          notes?: string | null
-          rating?: number | null
-          room_id?: string | null
-          started_at?: string
-          status?: string
-          support_user_id?: string | null
+          payload?: Json
+          periodo?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "attendances_room_id_fkey"
-            columns: ["room_id"]
+            foreignKeyName: "analytics_cache_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "support_rooms"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendances_support_user_id_fkey"
-            columns: ["support_user_id"]
-            isOneToOne: false
-            referencedRelation: "support_users"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      messages: {
+      goals: {
         Row: {
-          attendance_id: string | null
-          content: string
-          created_at: string
+          ano: string
+          created_at: string | null
           id: string
-          room_id: string | null
-          sender_type: string
+          mes: string
           user_id: string
+          valor_meta: number
         }
         Insert: {
-          attendance_id?: string | null
-          content: string
-          created_at?: string
+          ano: string
+          created_at?: string | null
           id?: string
-          room_id?: string | null
-          sender_type: string
+          mes: string
           user_id: string
+          valor_meta: number
         }
         Update: {
-          attendance_id?: string | null
-          content?: string
-          created_at?: string
+          ano?: string
+          created_at?: string | null
           id?: string
-          room_id?: string | null
-          sender_type?: string
+          mes?: string
           user_id?: string
+          valor_meta?: number
         }
         Relationships: [
           {
-            foreignKeyName: "messages_attendance_id_fkey"
-            columns: ["attendance_id"]
+            foreignKeyName: "goals_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "attendances"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "support_rooms"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
       profiles: {
         Row: {
-          cpf: string | null
-          created_at: string
-          full_name: string
-          id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          cpf?: string | null
-          created_at?: string
-          full_name: string
-          id?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          cpf?: string | null
-          created_at?: string
-          full_name?: string
-          id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      quick_replies: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          title: string
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          title: string
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          title?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      room_members: {
-        Row: {
-          id: string
-          joined_at: string
-          room_id: string
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          joined_at?: string
-          room_id: string
-          user_id: string
-        }
-        Update: {
-          id?: string
-          joined_at?: string
-          room_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "room_members_room_id_fkey"
-            columns: ["room_id"]
-            isOneToOne: false
-            referencedRelation: "support_rooms"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      subscriptions: {
-        Row: {
-          created_at: string
-          expires_at: string | null
-          id: string
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          expires_at?: string | null
-          id?: string
-          status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          expires_at?: string | null
-          id?: string
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      super_admins: {
-        Row: {
-          cpf: string
-          created_at: string
-          full_name: string
-          id: string
-          updated_at: string
-        }
-        Insert: {
-          cpf: string
-          created_at?: string
-          full_name: string
-          id?: string
-          updated_at?: string
-        }
-        Update: {
-          cpf?: string
-          created_at?: string
-          full_name?: string
-          id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      support_rooms: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          max_members: number
-          name: string
-          observations: string | null
-          support_user_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          max_members?: number
-          name: string
-          observations?: string | null
-          support_user_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          max_members?: number
-          name?: string
-          observations?: string | null
-          support_user_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "support_rooms_support_user_id_fkey"
-            columns: ["support_user_id"]
-            isOneToOne: false
-            referencedRelation: "support_users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      support_users: {
-        Row: {
-          created_at: string
+          created_at: string | null
+          data_nascimento: string | null
           email: string
-          full_name: string
           id: string
-          is_active: boolean
-          updated_at: string
-          user_id: string
+          matricula: string
+          nome: string
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
+          data_nascimento?: string | null
           email: string
-          full_name: string
-          id?: string
-          is_active?: boolean
-          updated_at?: string
-          user_id: string
+          id: string
+          matricula: string
+          nome: string
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
+          data_nascimento?: string | null
           email?: string
-          full_name?: string
           id?: string
-          is_active?: boolean
-          updated_at?: string
-          user_id?: string
+          matricula?: string
+          nome?: string
+          updated_at?: string | null
         }
         Relationships: []
+      }
+      time_entries: {
+        Row: {
+          created_at: string | null
+          date: string
+          entry_time: string
+          exit_time: string | null
+          id: string
+          total_hours: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          entry_time: string
+          exit_time?: string | null
+          id?: string
+          total_hours?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          entry_time?: string
+          exit_time?: string | null
+          id?: string
+          total_hours?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          categoria: string
+          created_at: string | null
+          data: string
+          descricao: string | null
+          id: string
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria: string
+          created_at?: string | null
+          data?: string
+          descricao?: string | null
+          id?: string
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string | null
+          data?: string
+          descricao?: string | null
+          id?: string
+          tipo?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
           role: Database["public"]["Enums"]["user_role"]
           user_id: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          role?: Database["public"]["Enums"]["user_role"]
+          role: Database["public"]["Enums"]["user_role"]
           user_id: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
           user_id?: string
         }
-        Relationships: []
-      }
-      whatsapp_connections: {
-        Row: {
-          created_at: string
-          id: string
-          instance_name: string
-          qr_code: string | null
-          room_id: string | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          instance_name: string
-          qr_code?: string | null
-          room_id?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          instance_name?: string
-          qr_code?: string | null
-          room_id?: string | null
-          status?: string
-          updated_at?: string
-        }
         Relationships: [
           {
-            foreignKeyName: "whatsapp_connections_room_id_fkey"
-            columns: ["room_id"]
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "support_rooms"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
+      }
+      users: {
+        Row: {
+          cpf: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          password: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string | null
+        }
+        Insert: {
+          cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          password: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Update: {
+          cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          password?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      assign_super_admin_role: {
+        Args: { user_email: string }
+        Returns: undefined
+      }
+      check_norm_admin_role: {
+        Args: { _role: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_admin_user: { Args: { _user_id: string }; Returns: boolean }
+      update_expired_admins: { Args: never; Returns: undefined }
     }
     Enums: {
       user_role: "user" | "support" | "admin" | "super_admin"
