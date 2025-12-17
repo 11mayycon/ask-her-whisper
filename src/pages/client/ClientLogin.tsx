@@ -46,14 +46,14 @@ const ClientLogin = () => {
       }
 
       if (data.user) {
-        // Check if user is approved (has client role and active subscription)
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .single();
+        // Check if user is approved (has active status in users table)
+        const { data: userData } = await supabase
+          .from('users')
+          .select('is_active')
+          .eq('id', data.user.id)
+          .maybeSingle();
 
-        if (!roleData || (roleData.role !== 'user' && roleData.role !== 'admin' && roleData.role !== 'super_admin')) {
+        if (!userData || !userData.is_active) {
           await supabase.auth.signOut();
           toast({
             title: "Acesso negado",

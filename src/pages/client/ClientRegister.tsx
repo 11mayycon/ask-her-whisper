@@ -105,8 +105,7 @@ const ClientRegister = () => {
             name: formData.name,
             email: formData.email,
             cpf: formData.cpf.replace(/\D/g, ''),
-            password: 'supabase_auth', // Placeholder since real password is in auth
-            role: 'user',
+            phone: formData.phone.replace(/\D/g, ''),
             is_active: false // Pending approval
           });
 
