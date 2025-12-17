@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
   Users, Search, MoreVertical, CheckCircle, XCircle, Clock, 
-  Ban, RefreshCw, Eye, Trash2, Edit
+  Ban, RefreshCw, Eye, Trash2, Edit, Loader2
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -16,28 +16,103 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  cpf: string | null;
+  phone: string | null;
+  is_active: boolean | null;
+  expires_at: string | null;
+  approved_at: string | null;
+  created_at: string | null;
+}
 
 const AdminClients = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<string>("all");
-  
-  const [clients, setClients] = useState([
-    { id: 1, name: "João Silva", email: "joao@email.com", cpf: "123.456.789-00", phone: "(11) 99999-8888", status: "active", daysRemaining: 23, whatsapp: true, plan: "Pro", createdAt: "10/12/2024" },
-    { id: 2, name: "Maria Santos", email: "maria@email.com", cpf: "987.654.321-00", phone: "(21) 98888-7777", status: "active", daysRemaining: 15, whatsapp: true, plan: "Pro", createdAt: "05/12/2024" },
-    { id: 3, name: "Pedro Costa", email: "pedro@email.com", cpf: "456.789.123-00", phone: "(31) 97777-6666", status: "expired", daysRemaining: 0, whatsapp: false, plan: "Básico", createdAt: "01/12/2024" },
-    { id: 4, name: "Ana Oliveira", email: "ana@email.com", cpf: "789.123.456-00", phone: "(41) 96666-5555", status: "active", daysRemaining: 7, whatsapp: true, plan: "Enterprise", createdAt: "20/11/2024" },
-    { id: 5, name: "Carlos Mendes", email: "carlos@email.com", cpf: "321.654.987-00", phone: "(51) 95555-4444", status: "blocked", daysRemaining: 12, whatsapp: false, plan: "Pro", createdAt: "15/11/2024" },
-    { id: 6, name: "Fernanda Lima", email: "fernanda@email.com", cpf: "654.987.321-00", phone: "(61) 94444-3333", status: "pending", daysRemaining: 30, whatsapp: false, plan: "Básico", createdAt: "16/12/2024" },
-  ]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [renewDialog, setRenewDialog] = useState<{ open: boolean; client: Client | null }>({ open: false, client: null });
+  const [selectedDays, setSelectedDays] = useState("30");
+
+  const fetchClients = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching clients:', error);
+        toast({
+          title: "Erro ao carregar clientes",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setClients(data || []);
+    } catch (err) {
+      console.error('Error:', err);
+      toast({
+        title: "Erro ao carregar",
+        description: "Não foi possível carregar os clientes.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const getClientStatus = (client: Client): string => {
+    if (!client.is_active && !client.approved_at) return "pending";
+    if (!client.is_active) return "blocked";
+    if (client.expires_at && new Date(client.expires_at) < new Date()) return "expired";
+    return "active";
+  };
+
+  const getDaysRemaining = (expiresAt: string | null): number => {
+    if (!expiresAt) return 0;
+    const now = new Date();
+    const expires = new Date(expiresAt);
+    const diff = expires.getTime() - now.getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  };
 
   const filteredClients = clients.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.cpf.includes(searchTerm);
+      (c.cpf && c.cpf.includes(searchTerm));
     
+    const status = getClientStatus(c);
     if (filter === "all") return matchesSearch;
-    return matchesSearch && c.status === filter;
+    return matchesSearch && status === filter;
   });
 
   const getStatusBadge = (status: string) => {
@@ -56,19 +131,120 @@ const AdminClients = () => {
     return <Badge className={styles[status as keyof typeof styles]}>{labels[status as keyof typeof labels]}</Badge>;
   };
 
-  const handleAction = (action: string, client: typeof clients[0]) => {
-    toast({
-      title: `Ação: ${action}`,
-      description: `Executado para ${client.name}`,
-    });
+  const handleBlock = async (client: Client) => {
+    setActionLoading(client.id);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ is_active: false })
+        .eq('id', client.id);
+
+      if (error) throw error;
+
+      toast({ title: "Cliente bloqueado", description: `${client.name} foi bloqueado.` });
+      fetchClients();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUnblock = async (client: Client) => {
+    setActionLoading(client.id);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ is_active: true })
+        .eq('id', client.id);
+
+      if (error) throw error;
+
+      toast({ title: "Cliente desbloqueado", description: `${client.name} foi desbloqueado.` });
+      fetchClients();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRenew = (client: Client) => {
+    setRenewDialog({ open: true, client });
+  };
+
+  const confirmRenew = async () => {
+    if (!renewDialog.client) return;
+
+    setActionLoading(renewDialog.client.id);
+    try {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + parseInt(selectedDays));
+
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          expires_at: expiresAt.toISOString(),
+          is_active: true
+        })
+        .eq('id', renewDialog.client.id);
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Acesso renovado!", 
+        description: `${renewDialog.client.name} tem agora ${selectedDays} dias de acesso.` 
+      });
+      setRenewDialog({ open: false, client: null });
+      fetchClients();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (client: Client) => {
+    if (!confirm(`Tem certeza que deseja excluir ${client.name}?`)) return;
+
+    setActionLoading(client.id);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', client.id);
+
+      if (error) throw error;
+
+      toast({ title: "Cliente excluído", description: `${client.name} foi removido.`, variant: "destructive" });
+      fetchClients();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const statusCounts = {
     all: clients.length,
-    active: clients.filter(c => c.status === "active").length,
-    pending: clients.filter(c => c.status === "pending").length,
-    expired: clients.filter(c => c.status === "expired").length,
-    blocked: clients.filter(c => c.status === "blocked").length,
+    active: clients.filter(c => getClientStatus(c) === "active").length,
+    pending: clients.filter(c => getClientStatus(c) === "pending").length,
+    expired: clients.filter(c => getClientStatus(c) === "expired").length,
+    blocked: clients.filter(c => getClientStatus(c) === "blocked").length,
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const formatCPF = (cpf: string | null) => {
+    if (!cpf) return '-';
+    const cleaned = cpf.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+      return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+    return cpf;
   };
 
   return (
@@ -84,6 +260,9 @@ const AdminClients = () => {
             Gerencie todos os clientes da plataforma
           </p>
         </div>
+        <Button onClick={fetchClients} variant="outline" size="icon" disabled={loading}>
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
 
       {/* Filters */}
@@ -124,96 +303,143 @@ const AdminClients = () => {
       {/* Table */}
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border/50">
-                  <th className="text-left p-4 text-muted-foreground font-medium">Cliente</th>
-                  <th className="text-left p-4 text-muted-foreground font-medium">CPF</th>
-                  <th className="text-left p-4 text-muted-foreground font-medium">Plano</th>
-                  <th className="text-left p-4 text-muted-foreground font-medium">Status</th>
-                  <th className="text-left p-4 text-muted-foreground font-medium">Dias</th>
-                  <th className="text-left p-4 text-muted-foreground font-medium">WhatsApp</th>
-                  <th className="text-left p-4 text-muted-foreground font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredClients.map((client, index) => (
-                  <motion.tr 
-                    key={client.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="border-b border-border/30 hover:bg-muted/30"
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                          {client.name[0]}
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">{client.name}</p>
-                          <p className="text-sm text-muted-foreground">{client.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4 text-foreground">{client.cpf}</td>
-                    <td className="p-4">
-                      <Badge variant="outline">{client.plan}</Badge>
-                    </td>
-                    <td className="p-4">{getStatusBadge(client.status)}</td>
-                    <td className="p-4">
-                      <span className={client.daysRemaining <= 7 ? "text-yellow-400" : "text-foreground"}>
-                        {client.daysRemaining} dias
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      {client.whatsapp ? (
-                        <CheckCircle className="w-5 h-5 text-emerald-400" />
-                      ) : (
-                        <XCircle className="w-5 h-5 text-red-400" />
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleAction("Ver detalhes", client)}>
-                            <Eye className="w-4 h-4 mr-2" /> Ver detalhes
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleAction("Editar", client)}>
-                            <Edit className="w-4 h-4 mr-2" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleAction("Renovar", client)}>
-                            <RefreshCw className="w-4 h-4 mr-2" /> Renovar acesso
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {client.status === "blocked" ? (
-                            <DropdownMenuItem onClick={() => handleAction("Desbloquear", client)}>
-                              <CheckCircle className="w-4 h-4 mr-2" /> Desbloquear
-                            </DropdownMenuItem>
+          {loading ? (
+            <div className="p-12 text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+              <p className="text-muted-foreground">Carregando clientes...</p>
+            </div>
+          ) : filteredClients.length === 0 ? (
+            <div className="p-12 text-center">
+              <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-muted-foreground">Nenhum cliente encontrado</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left p-4 text-muted-foreground font-medium">Cliente</th>
+                    <th className="text-left p-4 text-muted-foreground font-medium">CPF</th>
+                    <th className="text-left p-4 text-muted-foreground font-medium">Status</th>
+                    <th className="text-left p-4 text-muted-foreground font-medium">Dias Restantes</th>
+                    <th className="text-left p-4 text-muted-foreground font-medium">Criado em</th>
+                    <th className="text-left p-4 text-muted-foreground font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredClients.map((client, index) => {
+                    const status = getClientStatus(client);
+                    const daysRemaining = getDaysRemaining(client.expires_at);
+                    
+                    return (
+                      <motion.tr 
+                        key={client.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="border-b border-border/30 hover:bg-muted/30"
+                      >
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                              {client.name[0]?.toUpperCase() || '?'}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">{client.name}</p>
+                              <p className="text-sm text-muted-foreground">{client.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-foreground">{formatCPF(client.cpf)}</td>
+                        <td className="p-4">{getStatusBadge(status)}</td>
+                        <td className="p-4">
+                          {status === 'pending' ? (
+                            <span className="text-muted-foreground">-</span>
                           ) : (
-                            <DropdownMenuItem onClick={() => handleAction("Bloquear", client)} className="text-yellow-400">
-                              <Ban className="w-4 h-4 mr-2" /> Bloquear
-                            </DropdownMenuItem>
+                            <span className={daysRemaining <= 7 ? "text-yellow-400" : "text-foreground"}>
+                              {daysRemaining} dias
+                            </span>
                           )}
-                          <DropdownMenuItem onClick={() => handleAction("Excluir", client)} className="text-red-400">
-                            <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                        <td className="p-4 text-foreground">{formatDate(client.created_at)}</td>
+                        <td className="p-4">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" disabled={actionLoading === client.id}>
+                                {actionLoading === client.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <MoreVertical className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleRenew(client)}>
+                                <RefreshCw className="w-4 h-4 mr-2" /> Renovar acesso
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {status === "blocked" || !client.is_active ? (
+                                <DropdownMenuItem onClick={() => handleUnblock(client)}>
+                                  <CheckCircle className="w-4 h-4 mr-2" /> Desbloquear
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => handleBlock(client)} className="text-yellow-400">
+                                  <Ban className="w-4 h-4 mr-2" /> Bloquear
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => handleDelete(client)} className="text-red-400">
+                                <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Renew Dialog */}
+      <Dialog open={renewDialog.open} onOpenChange={(open) => setRenewDialog({ ...renewDialog, open })}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Renovar Acesso</DialogTitle>
+            <DialogDescription>
+              Defina o novo período de acesso para {renewDialog.client?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <Select value={selectedDays} onValueChange={setSelectedDays}>
+              <SelectTrigger className="bg-background/50">
+                <SelectValue placeholder="Selecione o período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 dias</SelectItem>
+                <SelectItem value="15">15 dias</SelectItem>
+                <SelectItem value="30">30 dias</SelectItem>
+                <SelectItem value="60">60 dias</SelectItem>
+                <SelectItem value="90">90 dias</SelectItem>
+                <SelectItem value="365">1 ano</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenewDialog({ open: false, client: null })}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmRenew} disabled={actionLoading !== null}>
+              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

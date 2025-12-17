@@ -19,7 +19,7 @@ export default function Settings() {
         <CardContent className="space-y-4">
           <div>
             <p className="text-sm text-muted-foreground">Nome</p>
-            <p className="font-medium">{user?.full_name}</p>
+            <p className="font-medium">{user?.user_metadata?.name || user?.email}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Email</p>
