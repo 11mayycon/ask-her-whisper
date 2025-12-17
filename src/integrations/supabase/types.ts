@@ -10,250 +10,66 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
-      analytics_cache: {
-        Row: {
-          id: string
-          payload: Json
-          periodo: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          payload: Json
-          periodo: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          id?: string
-          payload?: Json
-          periodo?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "analytics_cache_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      goals: {
-        Row: {
-          ano: string
-          created_at: string | null
-          id: string
-          mes: string
-          user_id: string
-          valor_meta: number
-        }
-        Insert: {
-          ano: string
-          created_at?: string | null
-          id?: string
-          mes: string
-          user_id: string
-          valor_meta: number
-        }
-        Update: {
-          ano?: string
-          created_at?: string | null
-          id?: string
-          mes?: string
-          user_id?: string
-          valor_meta?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "goals_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      profiles: {
-        Row: {
-          created_at: string | null
-          data_nascimento: string | null
-          email: string
-          id: string
-          matricula: string
-          nome: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          data_nascimento?: string | null
-          email: string
-          id: string
-          matricula: string
-          nome: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          data_nascimento?: string | null
-          email?: string
-          id?: string
-          matricula?: string
-          nome?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      time_entries: {
-        Row: {
-          created_at: string | null
-          date: string
-          entry_time: string
-          exit_time: string | null
-          id: string
-          total_hours: number | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          date: string
-          entry_time: string
-          exit_time?: string | null
-          id?: string
-          total_hours?: number | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          date?: string
-          entry_time?: string
-          exit_time?: string | null
-          id?: string
-          total_hours?: number | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "time_entries_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      transactions: {
-        Row: {
-          categoria: string
-          created_at: string | null
-          data: string
-          descricao: string | null
-          id: string
-          tipo: string
-          user_id: string
-          valor: number
-        }
-        Insert: {
-          categoria: string
-          created_at?: string | null
-          data?: string
-          descricao?: string | null
-          id?: string
-          tipo: string
-          user_id: string
-          valor: number
-        }
-        Update: {
-          categoria?: string
-          created_at?: string | null
-          data?: string
-          descricao?: string | null
-          id?: string
-          tipo?: string
-          user_id?: string
-          valor?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "transactions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_roles: {
         Row: {
           created_at: string | null
           id: string
-          role: Database["public"]["Enums"]["user_role"]
+          role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
-          role: Database["public"]["Enums"]["user_role"]
+          role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
-          role?: Database["public"]["Enums"]["user_role"]
+          role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       users: {
         Row: {
+          approved_at: string | null
           cpf: string | null
           created_at: string | null
-          email: string | null
+          email: string
+          expires_at: string | null
           id: string
           is_active: boolean | null
           name: string
-          password: string
-          role: Database["public"]["Enums"]["user_role"]
+          phone: string | null
           updated_at: string | null
         }
         Insert: {
+          approved_at?: string | null
           cpf?: string | null
           created_at?: string | null
-          email?: string | null
+          email: string
+          expires_at?: string | null
           id?: string
           is_active?: boolean | null
           name: string
-          password: string
-          role?: Database["public"]["Enums"]["user_role"]
+          phone?: string | null
           updated_at?: string | null
         }
         Update: {
+          approved_at?: string | null
           cpf?: string | null
           created_at?: string | null
-          email?: string | null
+          email?: string
+          expires_at?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
-          password?: string
-          role?: Database["public"]["Enums"]["user_role"]
+          phone?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -263,20 +79,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      assign_super_admin_role: {
-        Args: { user_email: string }
-        Returns: undefined
-      }
-      check_norm_admin_role: {
-        Args: { _role: string; _user_id: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
         Returns: boolean
       }
-      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
-      is_admin_user: { Args: { _user_id: string }; Returns: boolean }
-      update_expired_admins: { Args: never; Returns: undefined }
     }
     Enums: {
-      user_role: "user" | "support" | "admin" | "super_admin"
+      app_role: "admin" | "client" | "super_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -404,7 +216,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      user_role: ["user", "support", "admin", "super_admin"],
+      app_role: ["admin", "client", "super_admin"],
     },
   },
 } as const

@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
-  ClipboardList, Check, X, Clock, User, Mail, Phone, CreditCard, Calendar
+  ClipboardList, Check, X, User, Mail, Phone, CreditCard, Calendar, Loader2, RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -21,44 +21,185 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+
+interface PendingRequest {
+  id: string;
+  name: string;
+  email: string;
+  cpf: string;
+  phone?: string;
+  created_at: string;
+}
 
 const AdminRequests = () => {
   const { toast } = useToast();
-  const [approvalDialog, setApprovalDialog] = useState<{ open: boolean; request: any }>({ 
+  const [approvalDialog, setApprovalDialog] = useState<{ open: boolean; request: PendingRequest | null }>({ 
     open: false, 
     request: null 
   });
   const [selectedDays, setSelectedDays] = useState("30");
-  
-  const [requests, setRequests] = useState([
-    { id: 1, name: "Carlos Mendes", email: "carlos@email.com", cpf: "123.456.789-00", phone: "(11) 98888-7777", date: "16/12/2024 14:30" },
-    { id: 2, name: "Fernanda Lima", email: "fernanda@email.com", cpf: "987.654.321-00", phone: "(21) 97777-6666", date: "16/12/2024 10:15" },
-    { id: 3, name: "Roberto Alves", email: "roberto@email.com", cpf: "456.789.123-00", phone: "(31) 96666-5555", date: "15/12/2024 18:45" },
-    { id: 4, name: "Juliana Costa", email: "juliana@email.com", cpf: "789.123.456-00", phone: "(41) 95555-4444", date: "15/12/2024 09:20" },
-  ]);
+  const [requests, setRequests] = useState<PendingRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const handleApprove = (request: any) => {
+  const fetchPendingRequests = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email, cpf, created_at')
+        .eq('is_active', false)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching pending requests:', error);
+        toast({
+          title: "Erro ao carregar solicitações",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Map data and try to get phone from auth metadata if needed
+      const mappedData: PendingRequest[] = (data || []).map(user => ({
+        id: user.id,
+        name: user.name || 'Nome não informado',
+        email: user.email,
+        cpf: user.cpf || 'CPF não informado',
+        phone: '', // We'll try to get this from auth metadata
+        created_at: user.created_at
+      }));
+
+      setRequests(mappedData);
+    } catch (err) {
+      console.error('Error:', err);
+      toast({
+        title: "Erro ao carregar",
+        description: "Não foi possível carregar as solicitações pendentes.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingRequests();
+  }, []);
+
+  const handleApprove = (request: PendingRequest) => {
     setApprovalDialog({ open: true, request });
   };
 
-  const confirmApproval = () => {
-    if (approvalDialog.request) {
-      setRequests(requests.filter(r => r.id !== approvalDialog.request.id));
+  const confirmApproval = async () => {
+    if (!approvalDialog.request) return;
+
+    setActionLoading(approvalDialog.request.id);
+    try {
+      // Calculate expiration date
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + parseInt(selectedDays));
+
+      // Update user to active with expiration
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          is_active: true,
+          expires_at: expiresAt.toISOString(),
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', approvalDialog.request.id);
+
+      if (error) {
+        console.error('Error approving user:', error);
+        toast({
+          title: "Erro ao aprovar",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Remove from local state
+      setRequests(requests.filter(r => r.id !== approvalDialog.request!.id));
+      
       toast({ 
         title: "Cliente Aprovado!", 
         description: `${approvalDialog.request.name} foi aprovado com ${selectedDays} dias de acesso.` 
       });
+      
       setApprovalDialog({ open: false, request: null });
+    } catch (err) {
+      console.error('Error:', err);
+      toast({
+        title: "Erro ao aprovar",
+        description: "Não foi possível aprovar o cliente.",
+        variant: "destructive"
+      });
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleReject = (id: number, name: string) => {
-    setRequests(requests.filter(r => r.id !== id));
-    toast({ 
-      title: "Solicitação Reprovada", 
-      description: `Cadastro de ${name} foi removido.`,
-      variant: "destructive"
+  const handleReject = async (request: PendingRequest) => {
+    setActionLoading(request.id);
+    try {
+      // Delete user from users table
+      const { error: deleteError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', request.id);
+
+      if (deleteError) {
+        console.error('Error deleting user:', deleteError);
+        toast({
+          title: "Erro ao reprovar",
+          description: deleteError.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Try to delete from auth (this may fail if user doesn't have admin rights)
+      // The user record in users table is the main concern
+      
+      setRequests(requests.filter(r => r.id !== request.id));
+      toast({ 
+        title: "Solicitação Reprovada", 
+        description: `Cadastro de ${request.name} foi removido.`,
+        variant: "destructive"
+      });
+    } catch (err) {
+      console.error('Error:', err);
+      toast({
+        title: "Erro ao reprovar",
+        description: "Não foi possível remover a solicitação.",
+        variant: "destructive"
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
+  };
+
+  const formatCPF = (cpf: string) => {
+    const cleaned = cpf.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+      return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+    return cpf;
   };
 
   return (
@@ -74,13 +215,30 @@ const AdminRequests = () => {
             Aprove ou reprove solicitações de novos clientes
           </p>
         </div>
-        <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-lg px-4 py-2">
-          {requests.length} pendentes
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={fetchPendingRequests}
+            disabled={loading}
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-lg px-4 py-2">
+            {requests.length} pendentes
+          </Badge>
+        </div>
       </div>
 
-      {/* Requests List */}
-      {requests.length === 0 ? (
+      {/* Loading State */}
+      {loading ? (
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="p-12 text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Carregando solicitações...</p>
+          </CardContent>
+        </Card>
+      ) : requests.length === 0 ? (
         <Card className="bg-card/50 border-border/50">
           <CardContent className="p-12 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
@@ -107,7 +265,7 @@ const AdminRequests = () => {
                       {/* User Info */}
                       <div className="flex items-start gap-4 flex-1">
                         <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
-                          {req.name[0]}
+                          {req.name[0]?.toUpperCase() || '?'}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
                           <div>
@@ -122,45 +280,53 @@ const AdminRequests = () => {
                               <Mail className="w-4 h-4" />
                               Email
                             </div>
-                            <p className="text-foreground">{req.email}</p>
+                            <p className="text-foreground text-sm break-all">{req.email}</p>
                           </div>
                           <div>
                             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
                               <CreditCard className="w-4 h-4" />
                               CPF
                             </div>
-                            <p className="text-foreground">{req.cpf}</p>
+                            <p className="text-foreground">{formatCPF(req.cpf)}</p>
                           </div>
                           <div>
                             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-                              <Phone className="w-4 h-4" />
-                              Telefone
+                              <Calendar className="w-4 h-4" />
+                              Data do Cadastro
                             </div>
-                            <p className="text-foreground">{req.phone}</p>
+                            <p className="text-foreground text-sm">{formatDate(req.created_at)}</p>
                           </div>
                         </div>
                       </div>
 
                       {/* Actions */}
                       <div className="flex items-center gap-3">
-                        <div className="text-right mr-4 hidden lg:block">
-                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                            <Calendar className="w-4 h-4" />
-                            {req.date}
-                          </div>
-                        </div>
                         <Button 
                           onClick={() => handleApprove(req)} 
                           className="bg-emerald-600 hover:bg-emerald-700 min-w-[120px]"
+                          disabled={actionLoading === req.id}
                         >
-                          <Check className="w-4 h-4 mr-2" /> Aprovar
+                          {actionLoading === req.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Check className="w-4 h-4 mr-2" /> Aprovar
+                            </>
+                          )}
                         </Button>
                         <Button 
-                          onClick={() => handleReject(req.id, req.name)} 
+                          onClick={() => handleReject(req)} 
                           variant="destructive"
                           className="min-w-[120px]"
+                          disabled={actionLoading === req.id}
                         >
-                          <X className="w-4 h-4 mr-2" /> Reprovar
+                          {actionLoading === req.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <X className="w-4 h-4 mr-2" /> Reprovar
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -211,7 +377,14 @@ const AdminRequests = () => {
             <Button variant="outline" onClick={() => setApprovalDialog({ open: false, request: null })}>
               Cancelar
             </Button>
-            <Button onClick={confirmApproval} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button 
+              onClick={confirmApproval} 
+              className="bg-emerald-600 hover:bg-emerald-700"
+              disabled={actionLoading !== null}
+            >
+              {actionLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : null}
               Confirmar Aprovação
             </Button>
           </div>
