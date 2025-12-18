@@ -1,29 +1,78 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Bot, Shield, Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
+import { Bot, Shield, Eye, EyeOff, ArrowLeft, Loader2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { loginSchema, type LoginFormData } from "@/lib/validations";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminLogin = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
+  const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
   const [formData, setFormData] = useState<LoginFormData>({
+    email: "",
+    password: "",
+  });
+  const [setupData, setSetupData] = useState({
+    name: "",
     email: "",
     password: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
 
+  useEffect(() => {
+    // Check if super admin exists
+    const checkAdmin = async () => {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('role', 'super_admin')
+        .limit(1);
+      
+      setHasAdmin(data && data.length > 0);
+    };
+    checkAdmin();
+  }, []);
+
+  const handleSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!setupData.email || !setupData.password || !setupData.name) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+
+    setSetupLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('setup-first-admin', {
+        body: setupData
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      toast.success("Super admin criado! Faça login agora.");
+      setShowSetup(false);
+      setFormData({ email: setupData.email, password: setupData.password });
+      setHasAdmin(true);
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao criar super admin");
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    // Validar dados do formulário
     const validation = loginSchema.safeParse(formData);
     
     if (!validation.success) {
@@ -230,15 +279,97 @@ const AdminLogin = () => {
             Apenas administradores autorizados podem acessar este painel.
           </p>
 
-          <div className="mt-6 pt-6 border-t border-border">
-            <p className="text-center text-xs text-muted-foreground mb-3">
-              Login para Super Administrador
-            </p>
-            <div className="flex items-center justify-center gap-2 text-xs text-primary">
-              <Shield className="w-4 h-4" />
-              <span className="font-semibold">Acesso Total ao Sistema</span>
+          {/* Setup First Admin Section */}
+          {hasAdmin === false && !showSetup && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <p className="text-center text-sm text-muted-foreground mb-3">
+                Nenhum administrador encontrado
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => setShowSetup(true)}
+                className="w-full"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Criar Primeiro Super Admin
+              </Button>
             </div>
-          </div>
+          )}
+
+          {/* Setup Form */}
+          {showSetup && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <h3 className="text-lg font-semibold mb-4 text-center">Criar Super Admin</h3>
+              <form onSubmit={handleSetup} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="setup-name">Nome</Label>
+                  <Input
+                    id="setup-name"
+                    placeholder="Seu nome"
+                    value={setupData.name}
+                    onChange={(e) => setSetupData({ ...setupData, name: e.target.value })}
+                    disabled={setupLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="setup-email">Email</Label>
+                  <Input
+                    id="setup-email"
+                    type="email"
+                    placeholder="admin@empresa.com"
+                    value={setupData.email}
+                    onChange={(e) => setSetupData({ ...setupData, email: e.target.value })}
+                    disabled={setupLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="setup-password">Senha</Label>
+                  <Input
+                    id="setup-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={setupData.password}
+                    onChange={(e) => setSetupData({ ...setupData, password: e.target.value })}
+                    disabled={setupLoading}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowSetup(false)}
+                    disabled={setupLoading}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={setupLoading}
+                    className="flex-1 bg-gradient-primary"
+                  >
+                    {setupLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Criar Admin"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {hasAdmin && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <p className="text-center text-xs text-muted-foreground mb-3">
+                Login para Super Administrador
+              </p>
+              <div className="flex items-center justify-center gap-2 text-xs text-primary">
+                <Shield className="w-4 h-4" />
+                <span className="font-semibold">Acesso Total ao Sistema</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
