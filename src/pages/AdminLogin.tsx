@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,6 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
-  const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
     password: "",
@@ -27,20 +26,6 @@ const AdminLogin = () => {
     password: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
-
-  useEffect(() => {
-    // Check if super admin exists
-    const checkAdmin = async () => {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('role', 'super_admin')
-        .limit(1);
-      
-      setHasAdmin(data && data.length > 0);
-    };
-    checkAdmin();
-  }, []);
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +46,6 @@ const AdminLogin = () => {
       toast.success("Super admin criado! Faça login agora.");
       setShowSetup(false);
       setFormData({ email: setupData.email, password: setupData.password });
-      setHasAdmin(true);
     } catch (error: any) {
       toast.error(error.message || "Erro ao criar super admin");
     } finally {
@@ -280,10 +264,10 @@ const AdminLogin = () => {
           </p>
 
           {/* Setup First Admin Section */}
-          {hasAdmin === false && !showSetup && (
+          {!showSetup && (
             <div className="mt-6 pt-6 border-t border-border">
               <p className="text-center text-sm text-muted-foreground mb-3">
-                Nenhum administrador encontrado
+                Primeiro acesso? Configure o Super Admin.
               </p>
               <Button
                 variant="outline"
@@ -356,18 +340,6 @@ const AdminLogin = () => {
                   </Button>
                 </div>
               </form>
-            </div>
-          )}
-
-          {hasAdmin && (
-            <div className="mt-6 pt-6 border-t border-border">
-              <p className="text-center text-xs text-muted-foreground mb-3">
-                Login para Super Administrador
-              </p>
-              <div className="flex items-center justify-center gap-2 text-xs text-primary">
-                <Shield className="w-4 h-4" />
-                <span className="font-semibold">Acesso Total ao Sistema</span>
-              </div>
             </div>
           )}
         </div>
